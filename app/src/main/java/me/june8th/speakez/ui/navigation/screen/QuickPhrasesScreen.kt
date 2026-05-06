@@ -3,6 +3,7 @@ package me.june8th.speakez.ui.navigation.screen
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -24,10 +25,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import me.june8th.speakez.R
+import me.june8th.speakez.ui.quick_phrases.QuickPhrasesViewModel
 
 @Composable
 fun QuickPhrasesScreen(modifier: Modifier = Modifier) {
+    val viewModel: QuickPhrasesViewModel = hiltViewModel()
+
+    // Get string resources at the Composable level
+    val quickHelpText = stringResource(R.string.quick_help)
+    val quickPainText = stringResource(R.string.quick_pain)
+    val quickCallFamilyText = stringResource(R.string.quick_call_family)
+
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
@@ -36,30 +46,36 @@ fun QuickPhrasesScreen(modifier: Modifier = Modifier) {
         val isLandscape = maxWidth > maxHeight
 
         if (isLandscape) {
-            androidx.compose.foundation.layout.Row(
+            Row(
                 modifier = Modifier.fillMaxSize(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 EmergencyButton(
-                    text = stringResource(R.string.quick_help),
+                    text = quickHelpText,
                     icon = Icons.Filled.Warning,
                     containerColor = Color(0xFFD32F2F),
-                    modifier = Modifier.weight(1f).fillMaxSize(),
-                    onClick = { },
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxSize(),
+                    onClick = { viewModel.speakQuickPhrase(quickHelpText) },
                 )
                 EmergencyButton(
-                    text = stringResource(R.string.quick_pain),
+                    text = quickPainText,
                     icon = Icons.Filled.LocalHospital,
                     containerColor = Color(0xFFF57C00),
-                    modifier = Modifier.weight(1f).fillMaxSize(),
-                    onClick = { },
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxSize(),
+                    onClick = { viewModel.speakQuickPhrase(quickPainText) },
                 )
                 EmergencyButton(
-                    text = stringResource(R.string.quick_call_family),
+                    text = quickCallFamilyText,
                     icon = Icons.Filled.Call,
                     containerColor = Color(0xFF2E7D32),
-                    modifier = Modifier.weight(1f).fillMaxSize(),
-                    onClick = { },
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxSize(),
+                    onClick = { viewModel.speakQuickPhrase(quickCallFamilyText) },
                 )
             }
         } else {
@@ -68,34 +84,34 @@ fun QuickPhrasesScreen(modifier: Modifier = Modifier) {
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 EmergencyButton(
-                    text = stringResource(R.string.quick_help),
+                    text = quickHelpText,
                     icon = Icons.Filled.Warning,
                     containerColor = Color(0xFFD32F2F),
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
                         .heightIn(min = 140.dp),
-                    onClick = { },
+                    onClick = { viewModel.speakQuickPhrase(quickHelpText) },
                 )
                 EmergencyButton(
-                    text = stringResource(R.string.quick_pain),
+                    text = quickPainText,
                     icon = Icons.Filled.LocalHospital,
                     containerColor = Color(0xFFF57C00),
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
                         .heightIn(min = 140.dp),
-                    onClick = { },
+                    onClick = { viewModel.speakQuickPhrase(quickPainText) },
                 )
                 EmergencyButton(
-                    text = stringResource(R.string.quick_call_family),
+                    text = quickCallFamilyText,
                     icon = Icons.Filled.Call,
                     containerColor = Color(0xFF2E7D32),
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
                         .heightIn(min = 140.dp),
-                    onClick = { },
+                    onClick = { viewModel.speakQuickPhrase(quickCallFamilyText) },
                 )
             }
         }
