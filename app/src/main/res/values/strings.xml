@@ -14,6 +14,7 @@
     <string name="categories_title">Nhóm ngữ cảnh</string>
     <string name="vocabulary_grid_title">Biểu tượng nhanh</string>
     <string name="tap_to_speak">Chạm để phát âm</string>
+    <string name="empty_vocabulary">Không có từ vựng nào</string>
     <string name="quick_help">Con cần giúp đỡ</string>
     <string name="quick_pain">Con bị đau</string>
     <string name="quick_call_family">Gọi người thân</string>
