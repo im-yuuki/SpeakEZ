@@ -32,13 +32,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import me.june8th.speakez.R
+import me.june8th.speakez.ui.home.HomeViewModel
 
 private data class DemoCategory(
     val title: String,
@@ -57,6 +60,7 @@ private val demoCategories = listOf(
 
 @Composable
 fun HomeScreen(modifier: Modifier = Modifier) {
+    val viewModel: HomeViewModel = viewModel()
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
@@ -74,12 +78,13 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     SentenceBar(
-                        text = stringResource(R.string.sentence_placeholder),
+                        viewModel = viewModel,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     CategoryRow(modifier = Modifier.fillMaxWidth())
                 }
                 IconGrid(
+                    viewModel = viewModel,
                     modifier = Modifier.weight(0.58f),
                     columns = 3,
                 )
@@ -90,11 +95,12 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 SentenceBar(
-                    text = stringResource(R.string.sentence_placeholder),
+                    viewModel = viewModel,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 CategoryRow(modifier = Modifier.fillMaxWidth())
                 IconGrid(
+                    viewModel = viewModel,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
@@ -107,9 +113,16 @@ fun HomeScreen(modifier: Modifier = Modifier) {
 
 @Composable
 private fun SentenceBar(
-    text: String,
+    viewModel: HomeViewModel,
     modifier: Modifier = Modifier,
 ) {
+    val sentenceWords = viewModel.sentenceWords.collectAsState()
+    val displayText = if (sentenceWords.value.isEmpty()) {
+        stringResource(R.string.sentence_placeholder)
+    } else {
+        sentenceWords.value.joinToString(" ")
+    }
+
     ElevatedCard(
         modifier = modifier,
         colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -122,19 +135,19 @@ private fun SentenceBar(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = text,
+                text = displayText,
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            IconButton(onClick = { }) {
+            IconButton(onClick = { viewModel.removeLastWord() }) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Backspace,
                     contentDescription = stringResource(R.string.delete_last_word),
                 )
             }
-            IconButton(onClick = { }) {
+            IconButton(onClick = { /* TTS action - will be implemented in Phase 4 */ }) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                     contentDescription = stringResource(R.string.speak_sentence),
@@ -188,6 +201,7 @@ private fun CategoryRow(modifier: Modifier = Modifier) {
 
 @Composable
 private fun IconGrid(
+    viewModel: HomeViewModel,
     modifier: Modifier = Modifier,
     columns: Int,
 ) {
@@ -213,6 +227,8 @@ private fun IconGrid(
                     color = category.containerColor,
                     shape = MaterialTheme.shapes.extraLarge,
                     tonalElevation = 2.dp,
+                    modifier = Modifier.fillMaxSize(),
+                    onClick = { viewModel.addWord(category.title) },
                 ) {
                     Column(
                         modifier = Modifier

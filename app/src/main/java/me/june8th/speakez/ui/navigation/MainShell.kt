@@ -1,3 +1,4 @@
+
 package me.june8th.speakez.ui.navigation
 
 import androidx.compose.foundation.layout.PaddingValues
@@ -108,6 +109,4 @@ private fun MainNavHost(
         }
     }
 }
-
-
 
