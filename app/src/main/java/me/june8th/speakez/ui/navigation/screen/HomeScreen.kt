@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items as lazyRowItems
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -187,10 +189,14 @@ private fun SentenceBar(
                     }
                 }
             )
-            IconButton(onClick = { viewModel.removeLastWord() }) {
+            IconButton(
+                onClick = { viewModel.removeLastWord() },
+                modifier = Modifier.size(64.dp),
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Backspace,
                     contentDescription = stringResource(R.string.delete_last_word),
+                    modifier = Modifier.size(28.dp),
                 )
             }
             IconButton(onClick = { viewModel.speakSentence() }) {
@@ -219,13 +225,14 @@ private fun CategoryRow(
             color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(modifier = Modifier.height(12.dp))
-        androidx.compose.foundation.lazy.LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             lazyRowItems(categories.value) { category ->
                 val isSelected = selectedCategory.value == category.category
                     Card(
                     modifier = Modifier.size(width = 128.dp, height = 88.dp),
+                    border = BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.5f)),
                     colors = CardDefaults.cardColors(
                         containerColor = if (isSelected) {
                             parseHexToColor(category.containerColorHex)
@@ -302,15 +309,17 @@ private fun IconGrid(
                 columns = GridCells.Fixed(gridColumns),
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(filteredVocabulary.value) { item ->
                     Surface(
                         color = parseHexToColor(item.containerColorHex),
                         shape = MaterialTheme.shapes.extraLarge,
                         tonalElevation = 2.dp,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .border(BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.5f)), MaterialTheme.shapes.extraLarge),
                         onClick = { viewModel.addWord(item.title) },
                     ) {
                         Column(
@@ -343,10 +352,4 @@ private fun IconGrid(
         }
     }
 }
-
-
-
-
-
-
 
