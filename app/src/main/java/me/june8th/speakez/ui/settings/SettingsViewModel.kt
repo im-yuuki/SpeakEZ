@@ -44,6 +44,10 @@ class SettingsViewModel @Inject constructor(
         _showLabels.value = show
     }
 
+    fun saveSettings() {
+        // Settings are applied immediately; this hook keeps a single entry point for persistence.
+    }
+
     override fun onCleared() {
         super.onCleared()
         ttsManager.stop()

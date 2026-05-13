@@ -25,4 +25,6 @@
     <string name="settings_icon_management_title">Quản lý biểu tượng</string>
     <string name="settings_icon_management_subtitle">Giao diện tĩnh cho helper mode</string>
     <string name="settings_show_labels">Hiển thị nhãn</string>
+    <string name="settings_save">Lưu</string>
+    <string name="settings_save_success">Cấu hình đã được cập nhật thành công</string>
 </resources>
