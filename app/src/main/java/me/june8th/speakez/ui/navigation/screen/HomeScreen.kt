@@ -1,6 +1,5 @@
 package me.june8th.speakez.ui.navigation.screen
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -45,6 +44,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.core.graphics.toColorInt
 import me.june8th.speakez.R
 import me.june8th.speakez.ui.home.HomeViewModel
 
@@ -52,24 +52,10 @@ import me.june8th.speakez.ui.home.HomeViewModel
 private fun parseHexToColor(hex: String): Color {
     val cleaned = hex.removePrefix("0x").removePrefix("#")
     // android.graphics.Color.parseColor expects a leading '#', supports ARGB (#AARRGGBB)
-    val intColor = android.graphics.Color.parseColor("#${cleaned}")
+    val intColor = "#${cleaned}".toColorInt()
     return Color(intColor)
 }
 
-private data class DemoCategory(
-    val title: String,
-    val iconTint: Color,
-    val containerColor: Color,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
-)
-
-private val demoCategories = listOf(
-    DemoCategory("Ăn uống", Color(0xFF0B7A75), Color(0xFFDDF7F4), Icons.Filled.Restaurant),
-    DemoCategory("Y tế", Color(0xFFB54708), Color(0xFFFFE8D6), Icons.Filled.LocalHospital),
-    DemoCategory("Hoạt động", Color(0xFF2F5AA8), Color(0xFFDDE8FF), Icons.Filled.SportsSoccer),
-    DemoCategory("Cảm xúc", Color(0xFF8E3B9E), Color(0xFFF3E0F8), Icons.Filled.Favorite),
-    DemoCategory("Cơ thể", Color(0xFF7A5B00), Color(0xFFFFF0C2), Icons.Filled.Mood),
-)
 
 /**
  * Get icon for category name

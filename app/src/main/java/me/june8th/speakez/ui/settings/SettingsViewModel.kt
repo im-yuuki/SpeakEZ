@@ -45,7 +45,10 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun saveSettings() {
-        // Settings are applied immediately; this hook keeps a single entry point for persistence.
+        setSpeechRate(_speechRate.value)
+        setPitch(_pitch.value)
+        setVolume(_volume.value)
+        setShowLabels(_showLabels.value)
     }
 
     override fun onCleared() {
