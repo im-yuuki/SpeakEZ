@@ -3,10 +3,11 @@ package me.june8th.speakez.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import me.june8th.speakez.data.mock.MockVocabularyRepository
@@ -27,35 +28,22 @@ class HomeViewModel @Inject constructor(
     private val _categories = MutableStateFlow<List<VocabularyItem>>(emptyList())
     val categories: StateFlow<List<VocabularyItem>> = _categories.asStateFlow()
 
-    private val _allVocabulary = MutableStateFlow<List<VocabularyItem>>(emptyList())
+    private val allVocabularyFlow = MockVocabularyRepository.allVocabulary
 
     // Filtered vocabulary based on selected category
-    val filteredVocabulary: StateFlow<List<VocabularyItem>> = _selectedCategory.map { selectedCat ->
-        if (selectedCat == null) {
-            // Show all vocabulary if no category selected
-            _allVocabulary.value
-        } else {
-            // Filter by selected category
-            _allVocabulary.value.filter { it.category == selectedCat }
-        }
+    val filteredVocabulary: StateFlow<List<VocabularyItem>> = combine(
+        _selectedCategory,
+        allVocabularyFlow,
+    ) { selectedCat, allVocabulary ->
+        val visible = allVocabulary.filter { it.isVisible }
+        if (selectedCat == null) visible else visible.filter { it.category == selectedCat }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Lazily,
         initialValue = emptyList()
     )
 
-    init {
-        loadMockData()
-    }
-
-    private fun loadMockData() {
-        try {
-            _categories.value = MockVocabularyRepository.getCategories()
-            _allVocabulary.value = MockVocabularyRepository.getAllVocabulary()
-        } catch (e: Exception) {
-            android.util.Log.e("HomeViewModel", "Failed to load mock data", e)
-        }
-    }
+    init { _categories.value = MockVocabularyRepository.getCategories() }
 
     fun selectCategory(category: String?) {
         _selectedCategory.value = category
@@ -92,6 +80,5 @@ class HomeViewModel @Inject constructor(
         ttsManager.stop()
     }
 }
-
 
 

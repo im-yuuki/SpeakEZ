@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.core.graphics.toColorInt
+import coil3.compose.AsyncImage
 import me.june8th.speakez.R
 import me.june8th.speakez.ui.home.HomeViewModel
 
@@ -314,12 +315,20 @@ private fun IconGrid(
                                 .padding(16.dp),
                             verticalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            Icon(
-                                imageVector = getItemIcon(item.category),
-                                contentDescription = null,
-                                tint = parseHexToColor(item.iconColorHex),
-                                modifier = Modifier.size(36.dp),
-                            )
+                            if (item.customImageUri != null) {
+                                AsyncImage(
+                                    model = item.customImageUri,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(40.dp),
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = getItemIcon(item.category),
+                                    contentDescription = null,
+                                    tint = parseHexToColor(item.iconColorHex),
+                                    modifier = Modifier.size(36.dp),
+                                )
+                            }
                             Text(
                                 text = item.title,
                                 style = MaterialTheme.typography.titleLarge,
@@ -338,4 +347,3 @@ private fun IconGrid(
         }
     }
 }
-

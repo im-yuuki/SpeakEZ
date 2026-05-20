@@ -28,8 +28,14 @@ class TtsManager(private val context: Context) {
         }
     }
 
-    fun speak(text: String) {
+    fun speak(
+        text: String,
+        speechRate: Float? = null,
+        pitch: Float? = null,
+    ) {
         if (!isInitialized || text.isBlank()) return
+        speechRate?.let { setSpeed(it) }
+        pitch?.let { setPitch(it) }
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null)
     }
 
@@ -43,6 +49,11 @@ class TtsManager(private val context: Context) {
 
     fun setPitch(pitch: Float) {
         tts?.setPitch(pitch.coerceIn(0.5f, 2.0f))
+    }
+
+    fun setVoiceConfig(speechRate: Float, pitch: Float) {
+        setSpeed(speechRate)
+        setPitch(pitch)
     }
 
     fun shutdown() {
@@ -60,4 +71,3 @@ object TtsModule {
         return TtsManager(context)
     }
 }
-

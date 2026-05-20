@@ -6,5 +6,6 @@ data class VocabularyItem(
     val iconColorHex: String,
     val containerColorHex: String,
     val category: String,
+    val isVisible: Boolean = true,
+    val customImageUri: String? = null,
 )
-

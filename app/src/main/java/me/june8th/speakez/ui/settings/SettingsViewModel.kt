@@ -5,6 +5,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import me.june8th.speakez.data.mock.MockVocabularyRepository
+import me.june8th.speakez.domain.model.VocabularyItem
 import me.june8th.speakez.tts.TtsManager
 import javax.inject.Inject
 
@@ -24,15 +26,14 @@ class SettingsViewModel @Inject constructor(
 
     private val _showLabels = MutableStateFlow(true)
     val showLabels: StateFlow<Boolean> = _showLabels.asStateFlow()
+    val vocabularyItems: StateFlow<List<VocabularyItem>> = MockVocabularyRepository.allVocabulary
 
     fun setSpeechRate(rate: Float) {
         _speechRate.value = rate
-        ttsManager.setSpeed(rate)
     }
 
     fun setPitch(pitch: Float) {
         _pitch.value = pitch
-        ttsManager.setPitch(pitch)
     }
 
     fun setVolume(volume: Float) {
@@ -45,10 +46,32 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun saveSettings() {
-        setSpeechRate(_speechRate.value)
-        setPitch(_pitch.value)
+        ttsManager.setVoiceConfig(
+            speechRate = _speechRate.value,
+            pitch = _pitch.value,
+        )
         setVolume(_volume.value)
         setShowLabels(_showLabels.value)
+    }
+
+    fun testAudio() {
+        ttsManager.speak(
+            text = "Xin chào, đây là giọng đọc thử nghiệm",
+            speechRate = _speechRate.value,
+            pitch = _pitch.value,
+        )
+    }
+
+    fun toggleVocabularyVisibility(itemId: String) {
+        MockVocabularyRepository.toggleVisibility(itemId)
+    }
+
+    fun addVocabulary(label: String, emoji: String) {
+        MockVocabularyRepository.addVocabulary(label = label, emoji = emoji)
+    }
+
+    fun updateVocabularyImage(itemId: String, imageUri: String) {
+        MockVocabularyRepository.updateCustomImage(itemId = itemId, imageUri = imageUri)
     }
 
     override fun onCleared() {
@@ -56,4 +79,3 @@ class SettingsViewModel @Inject constructor(
         ttsManager.stop()
     }
 }
-
