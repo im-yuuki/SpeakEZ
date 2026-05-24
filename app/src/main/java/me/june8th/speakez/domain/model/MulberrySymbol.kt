@@ -11,6 +11,7 @@ data class MulberrySymbol(
     val categoryVi: String,
     val symbolVi: String,
     val assetPath: String,
+    val isRepresentative: Boolean = false,
 )
 
 data class MulberryCategory(
@@ -18,3 +19,4 @@ data class MulberryCategory(
     val title: String,
     val symbolCount: Int,
 )
+

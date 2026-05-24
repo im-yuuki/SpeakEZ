@@ -68,6 +68,7 @@ class MulberrySymbolRepository @Inject constructor(
         if (fields.size < 9) return null
 
         val symbolEn = fields[5]
+        val isRep = fields.getOrNull(9) == "1"
         return MulberrySymbol(
             id = fields[0],
             categoryId = fields[1],
@@ -79,6 +80,7 @@ class MulberrySymbolRepository @Inject constructor(
             categoryVi = fields[7],
             symbolVi = fields[8],
             assetPath = "$SYMBOL_ASSET_BASE/$symbolEn.svg",
+            isRepresentative = isRep,
         )
     }
 

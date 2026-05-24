@@ -1,10 +1,12 @@
 package me.june8th.speakez.ui.navigation.screen
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -23,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -46,37 +49,87 @@ fun LoginScreen(
     onAvatarSelected: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 24.dp, vertical = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(
-            text = stringResource(R.string.login_title),
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = stringResource(R.string.login_subtitle),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(modifier = Modifier.height(32.dp))
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(20.dp),
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    if (isLandscape) {
+        Row(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(horizontal = 32.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(32.dp),
         ) {
-            items(demoProfiles) { profile ->
-                AvatarCard(
-                    profile = profile,
-                    onClick = onAvatarSelected,
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.Start,
+            ) {
+                Text(
+                    text = stringResource(R.string.login_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    textAlign = TextAlign.Start,
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.login_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Start,
+                )
+            }
+            
+            LazyRow(
+                modifier = Modifier.weight(1.5f),
+                contentPadding = PaddingValues(vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                items(demoProfiles) { profile ->
+                    AvatarCard(
+                        profile = profile,
+                        onClick = onAvatarSelected,
+                        isLandscape = true,
+                    )
+                }
+            }
+        }
+    } else {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp, vertical = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = stringResource(R.string.login_title),
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.login_subtitle),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(32.dp))
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                items(demoProfiles) { profile ->
+                    AvatarCard(
+                        profile = profile,
+                        onClick = onAvatarSelected,
+                        isLandscape = false,
+                    )
+                }
             }
         }
     }
@@ -86,10 +139,19 @@ fun LoginScreen(
 private fun AvatarCard(
     profile: LoginProfile,
     onClick: () -> Unit,
+    isLandscape: Boolean,
 ) {
+    val cardWidth = if (isLandscape) 150.dp else 180.dp
+    val cardHeight = if (isLandscape) 210.dp else 250.dp
+    val avatarSize = if (isLandscape) 100.dp else 140.dp
+    val initialStyle = if (isLandscape) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.displaySmall
+    val nameStyle = if (isLandscape) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge
+    val spacerHeight = if (isLandscape) 10.dp else 18.dp
+    val cardPadding = if (isLandscape) 12.dp else 18.dp
+
     Card(
         onClick = onClick,
-        modifier = Modifier.size(width = 180.dp, height = 250.dp),
+        modifier = Modifier.size(width = cardWidth, height = cardHeight),
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
@@ -97,13 +159,13 @@ private fun AvatarCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(18.dp),
+                .padding(cardPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
             Box(
                 modifier = Modifier
-                    .size(140.dp)
+                    .size(avatarSize)
                     .clip(CircleShape)
                     .background(
                         brush = Brush.linearGradient(profile.colors),
@@ -112,15 +174,15 @@ private fun AvatarCard(
             ) {
                 Text(
                     text = profile.initials,
-                    style = MaterialTheme.typography.displaySmall,
+                    style = initialStyle,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
                 )
             }
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(spacerHeight))
             Text(
                 text = profile.name,
-                style = MaterialTheme.typography.titleLarge,
+                style = nameStyle,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,

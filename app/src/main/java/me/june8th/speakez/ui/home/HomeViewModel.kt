@@ -14,6 +14,7 @@ import me.june8th.speakez.data.mulberry.MulberrySymbolRepository
 import me.june8th.speakez.domain.model.MulberryCategory
 import me.june8th.speakez.domain.model.MulberrySymbol
 import me.june8th.speakez.tts.TtsManager
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -21,10 +22,10 @@ class HomeViewModel @Inject constructor(
     private val ttsManager: TtsManager,
     private val mulberrySymbolRepository: MulberrySymbolRepository,
 ) : ViewModel() {
-    private val _sentenceWords = MutableStateFlow<List<String>>(emptyList())
-    val sentenceWords: StateFlow<List<String>> = _sentenceWords.asStateFlow()
+    private val _sentenceWords = MutableStateFlow<List<MulberrySymbol>>(emptyList())
+    val sentenceWords: StateFlow<List<MulberrySymbol>> = _sentenceWords.asStateFlow()
 
-    private val _selectedCategory = MutableStateFlow<String?>(null)
+    private val _selectedCategory = MutableStateFlow<String?>("CATEGORIES_ROOT")
     val selectedCategory: StateFlow<String?> = _selectedCategory.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
@@ -43,11 +44,46 @@ class HomeViewModel @Inject constructor(
         _searchQuery,
         _symbols,
     ) { selectedCategory, searchQuery, symbols ->
-        mulberrySymbolRepository.filterSymbols(
-            symbols = symbols,
-            query = searchQuery,
-            categoryId = selectedCategory,
-        )
+        val viLocale = Locale.forLanguageTag("vi-VN")
+        
+        if (searchQuery.isNotBlank()) {
+            return@combine mulberrySymbolRepository.filterSymbols(
+                symbols = symbols,
+                query = searchQuery,
+                categoryId = if (selectedCategory == "ALL_SYMBOLS" || selectedCategory == "CATEGORIES_ROOT") null else selectedCategory,
+            )
+        }
+        
+        when (selectedCategory) {
+            "ALL_SYMBOLS" -> {
+                symbols.sortedWith(compareBy<MulberrySymbol> { it.symbolVi.lowercase(viLocale) }.thenBy { it.id.toIntOrNull() ?: Int.MAX_VALUE })
+            }
+            null, "CATEGORIES_ROOT" -> {
+                // Root level: show category folders
+                symbols.filter { it.isRepresentative }
+                    .distinctBy { it.categoryId }
+                    .sortedBy { it.categoryVi.lowercase(viLocale) }
+            }
+            else -> {
+                // Inside a category: show back button + symbols in this category
+                val catSymbols = symbols.filter { it.categoryId == selectedCategory }
+                    .sortedWith(compareBy<MulberrySymbol> { it.symbolVi.lowercase(viLocale) }.thenBy { it.id.toIntOrNull() ?: Int.MAX_VALUE })
+                
+                val backSymbol = MulberrySymbol(
+                    id = "BACK_BUTTON",
+                    categoryId = "",
+                    grammar = "",
+                    rated = 0,
+                    tags = "",
+                    symbolEn = "",
+                    categoryEn = "",
+                    categoryVi = "",
+                    symbolVi = "Quay lại",
+                    assetPath = ""
+                )
+                listOf(backSymbol) + catSymbols
+            }
+        }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Lazily,
@@ -71,9 +107,9 @@ class HomeViewModel @Inject constructor(
         _searchQuery.value = query
     }
 
-    fun addWord(word: String) {
-        _sentenceWords.value = _sentenceWords.value + word
-        ttsManager.speak(word)
+    fun addWord(symbol: MulberrySymbol) {
+        _sentenceWords.value = _sentenceWords.value + symbol
+        ttsManager.speak(symbol.symbolVi)
     }
 
     fun removeLastWord() {
@@ -88,7 +124,7 @@ class HomeViewModel @Inject constructor(
         _sentenceWords.value = emptyList()
     }
 
-    fun getSentence(): String = _sentenceWords.value.joinToString(" ")
+    fun getSentence(): String = _sentenceWords.value.joinToString(" ") { it.symbolVi }
 
     fun speakSentence() {
         val sentence = getSentence()
@@ -102,5 +138,3 @@ class HomeViewModel @Inject constructor(
         ttsManager.stop()
     }
 }
-
-
