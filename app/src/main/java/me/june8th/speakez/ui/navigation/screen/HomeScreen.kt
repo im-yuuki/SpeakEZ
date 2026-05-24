@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
@@ -82,6 +83,7 @@ private fun categoryColor(categoryId: String): Color {
 @Composable
 fun HomeScreen(
     onMenuClick: () -> Unit,
+    onQuickPhrasesClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val viewModel: HomeViewModel = hiltViewModel()
@@ -169,13 +171,15 @@ fun HomeScreen(
                                 modifier = Modifier.size(24.dp)
                             )
                             Text(
-                                text = "Danh mục",
+                                text = "Menu",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = buttonTextColor,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                     }
+
+                    Spacer(modifier = Modifier.width(8.dp))
 
                     // Center: White sentence box (Contains images + text cards)
                     Surface(
@@ -269,6 +273,36 @@ fun HomeScreen(
                             }
                         }
                     }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Button: Quick Phrases (Câu nhanh)
+                    Surface(
+                        onClick = onQuickPhrasesClick,
+                        modifier = Modifier.size(width = 86.dp, height = 56.dp),
+                        color = buttonColor,
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.FlashOn,
+                                contentDescription = "Câu nhanh",
+                                tint = buttonTextColor,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Text(
+                                text = "Câu nhanh",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = buttonTextColor,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
 
                     // Right button: Search
                     Surface(

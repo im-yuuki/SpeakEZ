@@ -185,10 +185,25 @@ private fun MainNavHost(
             .padding(contentPadding),
     ) {
         composable(MainRoute.Home) {
-            HomeScreen(onMenuClick = onMenuClick)
+            HomeScreen(
+                onMenuClick = onMenuClick,
+                onQuickPhrasesClick = {
+                    navController.navigate(MainRoute.QuickPhrases) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+            )
         }
         composable(MainRoute.QuickPhrases) {
-            QuickPhrasesScreen(onMenuClick = onMenuClick)
+            QuickPhrasesScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                }
+            )
         }
         composable(MainRoute.Settings) {
             SettingsScreen(onMenuClick = onMenuClick)
