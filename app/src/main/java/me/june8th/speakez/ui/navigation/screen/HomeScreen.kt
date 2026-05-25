@@ -27,11 +27,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
@@ -339,15 +342,28 @@ fun HomeScreen(
                 isLandscape = true
             )
 
-            // Vocabulary Grid - Fixed 6 columns, responsive heights
-            SymbolGrid(
-                viewModel = viewModel,
+            Row(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-                columns = 6,
-                isLandscape = true
-            )
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Vocabulary Grid - Fixed 6 columns, responsive heights
+                SymbolGrid(
+                    viewModel = viewModel,
+                    modifier = Modifier.weight(1f),
+                    columns = 6,
+                    isLandscape = true
+                )
+
+                // Control Column on the right
+                ControlColumn(
+                    viewModel = viewModel,
+                    modifier = Modifier
+                        .width(100.dp)
+                        .fillMaxHeight()
+                )
+            }
         } else {
             // Portrait
             SentenceBar(
@@ -630,7 +646,11 @@ private fun SymbolGrid(
     isLandscape: Boolean = false,
 ) {
     val gridColumns = if (columns < 1) 1 else columns
-    val symbols = viewModel.filteredSymbols.collectAsState()
+    val symbols = if (isLandscape) {
+        viewModel.paginatedSymbols.collectAsState()
+    } else {
+        viewModel.filteredSymbols.collectAsState()
+    }
     val isLoading = viewModel.isLoading.collectAsState()
     val selectedCategory = viewModel.selectedCategory.collectAsState()
     val searchQuery = viewModel.searchQuery.collectAsState()
@@ -681,12 +701,6 @@ private fun SymbolGrid(
                                         isLandscape = true,
                                         cardHeight = cardHeight
                                     )
-                                } else if (symbol.id == "BACK_BUTTON") {
-                                    BackCard(
-                                        onClick = { viewModel.selectCategory(null) },
-                                        isLandscape = true,
-                                        cardHeight = cardHeight
-                                    )
                                 } else {
                                     SymbolCard(
                                         symbol = symbol,
@@ -714,11 +728,6 @@ private fun SymbolGrid(
                                 FolderCard(
                                     symbol = symbol,
                                     onClick = { viewModel.selectCategory(symbol.categoryId) },
-                                    isLandscape = false
-                                )
-                            } else if (symbol.id == "BACK_BUTTON") {
-                                BackCard(
-                                    onClick = { viewModel.selectCategory(null) },
                                     isLandscape = false
                                 )
                             } else {
@@ -996,6 +1005,119 @@ private fun SymbolCard(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun ControlColumn(
+    viewModel: me.june8th.speakez.ui.home.HomeViewModel,
+    modifier: Modifier = Modifier
+) {
+    val selectedCategory by viewModel.selectedCategory.collectAsState()
+    val currentPage by viewModel.currentPage.collectAsState()
+    val totalPages by viewModel.totalPages.collectAsState()
+
+    val canGoBack = selectedCategory != "CATEGORIES_ROOT" && selectedCategory != null
+    val canGoPrev = currentPage > 0
+    val canGoNext = currentPage < totalPages - 1
+
+    Column(
+        modifier = modifier
+            .background(Color(0xFF1E1E24), shape = MaterialTheme.shapes.medium)
+            .padding(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        ControlButton(
+            icon = Icons.AutoMirrored.Filled.ArrowBack,
+            text = "Quay lại",
+            enabled = canGoBack,
+            onClick = { viewModel.selectCategory("CATEGORIES_ROOT") },
+            modifier = Modifier.weight(1f)
+        )
+        ControlButton(
+            icon = Icons.Default.Home,
+            text = "Trang chủ",
+            enabled = true,
+            onClick = {
+                viewModel.selectCategory("CATEGORIES_ROOT")
+                viewModel.updateSearchQuery("")
+            },
+            modifier = Modifier.weight(1f)
+        )
+        ControlButton(
+            icon = Icons.Default.Favorite,
+            text = "Ưa thích",
+            enabled = false,
+            onClick = {},
+            modifier = Modifier.weight(1f)
+        )
+        ControlButton(
+            icon = Icons.AutoMirrored.Filled.ArrowBack,
+            text = "Trước",
+            enabled = canGoPrev,
+            onClick = { viewModel.previousPage() },
+            modifier = Modifier.weight(1f)
+        )
+        ControlButton(
+            icon = Icons.AutoMirrored.Filled.ArrowForward,
+            text = "Tiếp theo",
+            enabled = canGoNext,
+            onClick = { viewModel.nextPage() },
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun ControlButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val backgroundColor = if (enabled) {
+        Color(0xFF3E2723) // Sleek dark brown color
+    } else {
+        Color(0xFF3E2723).copy(alpha = 0.35f)
+    }
+    val contentColor = if (enabled) {
+        Color.White
+    } else {
+        Color.White.copy(alpha = 0.35f)
+    }
+
+    Surface(
+        onClick = { if (enabled) onClick() },
+        modifier = modifier.fillMaxWidth(),
+        color = backgroundColor,
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (enabled) Color(0xFF5D4037) else Color(0xFF5D4037).copy(alpha = 0.35f)
+        )
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize().padding(2.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = text,
+                tint = contentColor,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                color = contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

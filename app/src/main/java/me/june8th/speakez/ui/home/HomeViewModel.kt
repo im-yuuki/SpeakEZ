@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import me.june8th.speakez.data.mulberry.MulberrySymbolRepository
 import me.june8th.speakez.domain.model.MulberryCategory
@@ -39,6 +40,9 @@ class HomeViewModel @Inject constructor(
 
     private val _symbols = MutableStateFlow<List<MulberrySymbol>>(emptyList())
 
+    private val _currentPage = MutableStateFlow(0)
+    val currentPage: StateFlow<Int> = _currentPage.asStateFlow()
+
     val filteredSymbols: StateFlow<List<MulberrySymbol>> = combine(
         _selectedCategory,
         _searchQuery,
@@ -65,23 +69,9 @@ class HomeViewModel @Inject constructor(
                     .sortedBy { it.categoryVi.lowercase(viLocale) }
             }
             else -> {
-                // Inside a category: show back button + symbols in this category
-                val catSymbols = symbols.filter { it.categoryId == selectedCategory }
+                // Inside a category: show symbols in this category
+                symbols.filter { it.categoryId == selectedCategory }
                     .sortedWith(compareBy<MulberrySymbol> { it.symbolVi.lowercase(viLocale) }.thenBy { it.id.toIntOrNull() ?: Int.MAX_VALUE })
-                
-                val backSymbol = MulberrySymbol(
-                    id = "BACK_BUTTON",
-                    categoryId = "",
-                    grammar = "",
-                    rated = 0,
-                    tags = "",
-                    symbolEn = "",
-                    categoryEn = "",
-                    categoryVi = "",
-                    symbolVi = "Quay lại",
-                    assetPath = ""
-                )
-                listOf(backSymbol) + catSymbols
             }
         }
     }.stateIn(
@@ -89,6 +79,34 @@ class HomeViewModel @Inject constructor(
         started = SharingStarted.Lazily,
         initialValue = emptyList(),
     )
+
+    val paginatedSymbols: StateFlow<List<MulberrySymbol>> = combine(
+        filteredSymbols,
+        _currentPage
+    ) { symbols, page ->
+        val itemsPerPage = 24
+        val startIndex = page * itemsPerPage
+        val endIndex = minOf(startIndex + itemsPerPage, symbols.size)
+        if (startIndex < symbols.size && startIndex >= 0) {
+            symbols.subList(startIndex, endIndex)
+        } else {
+            emptyList()
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Lazily,
+        initialValue = emptyList(),
+    )
+
+    val totalPages: StateFlow<Int> = filteredSymbols
+        .map { symbols ->
+            val itemsPerPage = 24
+            if (symbols.isEmpty()) 1 else (symbols.size + itemsPerPage - 1) / itemsPerPage
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Lazily,
+            initialValue = 1,
+        )
 
     init {
         viewModelScope.launch {
@@ -101,10 +119,25 @@ class HomeViewModel @Inject constructor(
 
     fun selectCategory(category: String?) {
         _selectedCategory.value = category
+        _currentPage.value = 0
     }
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
+        _currentPage.value = 0
+    }
+
+    fun nextPage() {
+        val total = totalPages.value
+        if (_currentPage.value < total - 1) {
+            _currentPage.value += 1
+        }
+    }
+
+    fun previousPage() {
+        if (_currentPage.value > 0) {
+            _currentPage.value -= 1
+        }
     }
 
     fun addWord(symbol: MulberrySymbol) {
