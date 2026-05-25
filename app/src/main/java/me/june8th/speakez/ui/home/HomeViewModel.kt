@@ -46,6 +46,9 @@ class HomeViewModel @Inject constructor(
     private val _recommendationSymbols = MutableStateFlow<List<MulberrySymbol>>(emptyList())
     val recommendationSymbols: StateFlow<List<MulberrySymbol>> = _recommendationSymbols.asStateFlow()
 
+    private val _favoriteSymbols = MutableStateFlow<List<MulberrySymbol>>(emptyList())
+    val favoriteSymbols: StateFlow<List<MulberrySymbol>> = _favoriteSymbols.asStateFlow()
+
     private val _isEditMode = MutableStateFlow(false)
     val isEditMode: StateFlow<Boolean> = _isEditMode.asStateFlow()
 
@@ -64,21 +67,26 @@ class HomeViewModel @Inject constructor(
         _searchQuery,
         _symbols,
         _recommendationSymbols,
-    ) { selectedCategory, searchQuery, symbols, recSymbols ->
+        _favoriteSymbols,
+    ) { selectedCategory, searchQuery, symbols, recSymbols, favSymbols ->
         val viLocale = Locale.forLanguageTag("vi-VN")
         
-        val sourceSymbols = if (selectedCategory == "RECOMMENDATION") recSymbols else symbols
+        val sourceSymbols = when (selectedCategory) {
+            "RECOMMENDATION" -> recSymbols
+            "FAVORITES" -> favSymbols
+            else -> symbols
+        }
         
         if (searchQuery.isNotBlank()) {
             return@combine mulberrySymbolRepository.filterSymbols(
                 symbols = sourceSymbols,
                 query = searchQuery,
-                categoryId = if (selectedCategory == "ALL_SYMBOLS" || selectedCategory == "CATEGORIES_ROOT" || selectedCategory == "RECOMMENDATION") null else selectedCategory,
+                categoryId = if (selectedCategory == "ALL_SYMBOLS" || selectedCategory == "CATEGORIES_ROOT" || selectedCategory == "RECOMMENDATION" || selectedCategory == "FAVORITES") null else selectedCategory,
             )
         }
         
         when (selectedCategory) {
-            "RECOMMENDATION" -> {
+            "RECOMMENDATION", "FAVORITES" -> {
                 sourceSymbols
             }
             "ALL_SYMBOLS" -> {
@@ -152,8 +160,9 @@ class HomeViewModel @Inject constructor(
             val savedIdsString = sharedPrefs.getString("recommended_ids", null)
             if (savedIdsString != null) {
                 val savedIds = savedIdsString.split(",")
+                val seenIds = mutableSetOf<String>()
                 val mapped = savedIds.mapIndexed { index, id ->
-                    if (id.startsWith("PLACEHOLDER")) {
+                    if (id.startsWith("PLACEHOLDER") || seenIds.contains(id)) {
                         MulberrySymbol(
                             id = "PLACEHOLDER_$index",
                             categoryId = "",
@@ -168,6 +177,7 @@ class HomeViewModel @Inject constructor(
                             isRepresentative = false
                         )
                     } else {
+                        seenIds.add(id)
                         symbols.firstOrNull { it.id == id } ?: MulberrySymbol(
                             id = "PLACEHOLDER_$index",
                             categoryId = "",
@@ -191,6 +201,63 @@ class HomeViewModel @Inject constructor(
                 // Get exactly 120 mixed symbols (e.g., 20 folders and 100 normal cards)
                 val mixed = (folderSymbols.shuffled().take(20) + normalSymbols.shuffled().take(100)).shuffled()
                 _recommendationSymbols.value = mixed
+            }
+
+            // Restore Favorite Symbols
+            val savedFavIdsString = sharedPrefs.getString("favorite_ids", null)
+            if (savedFavIdsString != null) {
+                val savedFavIds = savedFavIdsString.split(",")
+                val seenFavIds = mutableSetOf<String>()
+                val mappedFav = savedFavIds.mapIndexed { index, id ->
+                    if (id.startsWith("PLACEHOLDER") || seenFavIds.contains(id)) {
+                        MulberrySymbol(
+                            id = "PLACEHOLDER_$index",
+                            categoryId = "",
+                            grammar = "",
+                            rated = 0,
+                            tags = "",
+                            symbolEn = "",
+                            categoryEn = "",
+                            categoryVi = "",
+                            symbolVi = "",
+                            assetPath = "",
+                            isRepresentative = false
+                        )
+                    } else {
+                        seenFavIds.add(id)
+                        symbols.firstOrNull { it.id == id } ?: MulberrySymbol(
+                            id = "PLACEHOLDER_$index",
+                            categoryId = "",
+                            grammar = "",
+                            rated = 0,
+                            tags = "",
+                            symbolEn = "",
+                            categoryEn = "",
+                            categoryVi = "",
+                            symbolVi = "",
+                            assetPath = "",
+                            isRepresentative = false
+                        )
+                    }
+                }
+                _favoriteSymbols.value = mappedFav
+            } else {
+                val initialFavs = List(120) { index ->
+                    MulberrySymbol(
+                        id = "PLACEHOLDER_$index",
+                        categoryId = "",
+                        grammar = "",
+                        rated = 0,
+                        tags = "",
+                        symbolEn = "",
+                        categoryEn = "",
+                        categoryVi = "",
+                        symbolVi = "",
+                        assetPath = "",
+                        isRepresentative = false
+                    )
+                }
+                _favoriteSymbols.value = initialFavs
             }
 
             _isLoading.value = false
@@ -219,11 +286,68 @@ class HomeViewModel @Inject constructor(
         _recommendationSymbols.value = currentList
     }
 
-    fun saveRecommendedSymbols() {
-        val ids = _recommendationSymbols.value.map { it.id }
-        val idsString = ids.joinToString(",")
+    fun addRecommendedToFavorites(indices: List<Int>) {
+        val currentRec = _recommendationSymbols.value
+        val currentFav = _favoriteSymbols.value.toMutableList()
+        
+        // Find symbols to add, filtering out any duplicates that are already in favorites
+        val symbolsToAdd = indices.mapNotNull { index ->
+            if (index in currentRec.indices) {
+                val sym = currentRec[index]
+                if (!sym.id.startsWith("PLACEHOLDER")) sym else null
+            } else null
+        }.filter { sym ->
+            currentFav.none { fav -> fav.id == sym.id }
+        }
+        
+        if (symbolsToAdd.isEmpty()) return
+        
+        // Place in first available placeholders
+        var addIndex = 0
+        for (i in currentFav.indices) {
+            if (addIndex >= symbolsToAdd.size) break
+            if (currentFav[i].id.startsWith("PLACEHOLDER")) {
+                currentFav[i] = symbolsToAdd[addIndex]
+                addIndex++
+            }
+        }
+        
+        _favoriteSymbols.value = currentFav
+    }
+
+    fun deleteFavoriteSymbols(indices: List<Int>) {
+        val currentList = _favoriteSymbols.value.toMutableList()
+        for (index in indices) {
+            if (index in currentList.indices) {
+                currentList[index] = MulberrySymbol(
+                    id = "PLACEHOLDER_$index",
+                    categoryId = "",
+                    grammar = "",
+                    rated = 0,
+                    tags = "",
+                    symbolEn = "",
+                    categoryEn = "",
+                    categoryVi = "",
+                    symbolVi = "",
+                    assetPath = "",
+                    isRepresentative = false
+                )
+            }
+        }
+        _favoriteSymbols.value = currentList
+    }
+
+    fun saveEditChanges() {
         val sharedPrefs = context.getSharedPreferences("SpeakEZ_Prefs", Context.MODE_PRIVATE)
-        sharedPrefs.edit().putString("recommended_ids", idsString).apply()
+        val editor = sharedPrefs.edit()
+        
+        val recIdsString = _recommendationSymbols.value.map { it.id }.joinToString(",")
+        editor.putString("recommended_ids", recIdsString)
+        
+        val favIdsString = _favoriteSymbols.value.map { it.id }.joinToString(",")
+        editor.putString("favorite_ids", favIdsString)
+        
+        editor.apply()
         _isEditMode.value = false
     }
 

@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -126,6 +128,7 @@ fun HomeScreen(
     val sentenceWords = viewModel.sentenceWords.collectAsState()
 
     val isEditMode by viewModel.isEditMode.collectAsState()
+    val selectedCategory by viewModel.selectedCategory.collectAsState()
     val selectedIndices = remember { androidx.compose.runtime.mutableStateListOf<Int>() }
     androidx.compose.runtime.LaunchedEffect(isEditMode) {
         selectedIndices.clear()
@@ -179,12 +182,22 @@ fun HomeScreen(
                         }
                     }
 
+                    val selectedCategory by viewModel.selectedCategory.collectAsState()
+                    val isEditingFavorites = selectedCategory == "FAVORITES"
+
                     Spacer(modifier = Modifier.width(8.dp))
 
                     Surface(
-                        onClick = { /* Will implement favorites edit later */ },
+                        onClick = {
+                            if (isEditingFavorites) {
+                                viewModel.selectCategory("RECOMMENDATION")
+                            } else {
+                                viewModel.selectCategory("FAVORITES")
+                            }
+                            selectedIndices.clear()
+                        },
                         modifier = Modifier.weight(1f).height(56.dp),
-                        color = MaterialTheme.colorScheme.secondary,
+                        color = if (isEditingFavorites) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondary,
                         shape = MaterialTheme.shapes.medium
                     ) {
                         Box(
@@ -196,12 +209,12 @@ fun HomeScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Favorite,
-                                    contentDescription = "Ưa thích",
+                                    imageVector = if (isEditingFavorites) Icons.Default.Home else Icons.Default.Favorite,
+                                    contentDescription = if (isEditingFavorites) "Chỉnh sửa Đề xuất" else "Chỉnh sửa Ưa thích",
                                     tint = Color.White
                                 )
                                 Text(
-                                    text = "Chỉnh sửa Ưa thích",
+                                    text = if (isEditingFavorites) "Chỉnh sửa Đề xuất" else "Chỉnh sửa Ưa thích",
                                     style = MaterialTheme.typography.titleMedium,
                                     color = Color.White,
                                     fontWeight = FontWeight.Bold
@@ -240,7 +253,7 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.width(8.dp))
 
                     Surface(
-                        onClick = { viewModel.saveRecommendedSymbols() },
+                        onClick = { viewModel.saveEditChanges() },
                         modifier = Modifier.size(width = 86.dp, height = 56.dp),
                         color = MaterialTheme.colorScheme.primary,
                         shape = MaterialTheme.shapes.medium
@@ -511,7 +524,15 @@ fun HomeScreen(
                     isEditMode = isEditMode,
                     selectedIndices = selectedIndices.toList(),
                     onDeleteClick = {
-                        viewModel.deleteRecommendedSymbols(selectedIndices.toList())
+                        if (selectedCategory == "FAVORITES") {
+                            viewModel.deleteFavoriteSymbols(selectedIndices.toList())
+                        } else {
+                            viewModel.deleteRecommendedSymbols(selectedIndices.toList())
+                        }
+                        selectedIndices.clear()
+                    },
+                    onAddToFavoritesClick = {
+                        viewModel.addRecommendedToFavorites(selectedIndices.toList())
                         selectedIndices.clear()
                     },
                     modifier = Modifier
@@ -679,6 +700,7 @@ private fun CategoryRow(
 ) {
     val categories = viewModel.categories.collectAsState()
     val selectedCategory = viewModel.selectedCategory.collectAsState()
+    val favoriteSymbols = viewModel.favoriteSymbols.collectAsState()
     val totalSymbols = categories.value.sumOf { it.symbolCount }
 
     Column(modifier = modifier) {
@@ -724,7 +746,19 @@ private fun CategoryRow(
                     containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                     onClick = { viewModel.selectCategory("RECOMMENDATION") },
                     isLandscape = isLandscape,
-                    enabled = true
+                    enabled = !isEditMode || selectedCategory.value == "RECOMMENDATION"
+                )
+            }
+            item(key = "favorites") {
+                val actualFavCount = favoriteSymbols.value.count { !it.id.startsWith("PLACEHOLDER") }
+                CategoryChip(
+                    title = "Yêu thích",
+                    count = actualFavCount,
+                    selected = selectedCategory.value == "FAVORITES",
+                    containerColor = Color(0xFFFFE0E6),
+                    onClick = { viewModel.selectCategory("FAVORITES") },
+                    isLandscape = isLandscape,
+                    enabled = !isEditMode || selectedCategory.value == "FAVORITES"
                 )
             }
             lazyRowItems(
@@ -873,11 +907,15 @@ private fun SymbolGrid(
 
     val isRootFolders = (selectedCategory.value == null || selectedCategory.value == "CATEGORIES_ROOT") && searchQuery.value.isBlank()
     val isRecommendation = selectedCategory.value == "RECOMMENDATION"
+    val isFavorites = selectedCategory.value == "FAVORITES"
+    val isRecommendationOrFavorites = isRecommendation || isFavorites
 
     Column(modifier = modifier) {
         if (!isLandscape) {
             val titleText = if (isRecommendation) {
                 "Gợi ý đề xuất (${symbols.value.size})"
+            } else if (isFavorites) {
+                "Yêu thích (${symbols.value.size})"
             } else if (isRootFolders) {
                 "Danh sách thư mục (${symbols.value.size})"
             } else {
@@ -923,7 +961,7 @@ private fun SymbolGrid(
                                         cardHeight = cardHeight
                                     )
                                 } else {
-                                    val showAsFolder = if (isRecommendation) symbol.isRepresentative else isRootFolders
+                                    val showAsFolder = if (isRecommendationOrFavorites) symbol.isRepresentative else isRootFolders
                                     Box(modifier = Modifier.fillMaxWidth().height(cardHeight)) {
                                         if (showAsFolder) {
                                             FolderCard(
@@ -1015,7 +1053,7 @@ private fun SymbolGrid(
                                     isLandscape = false
                                 )
                             } else {
-                                val showAsFolder = if (isRecommendation) symbol.isRepresentative else isRootFolders
+                                val showAsFolder = if (isRecommendationOrFavorites) symbol.isRepresentative else isRootFolders
                                 Box(modifier = Modifier.fillMaxWidth().height(156.dp)) {
                                     if (showAsFolder) {
                                         FolderCard(
@@ -1355,12 +1393,32 @@ private fun SymbolCard(
 }
 
 @Composable
+private fun UnfavoriteIcon(tint: Color = Color.White) {
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(24.dp)) {
+        Icon(
+            imageVector = Icons.Default.Favorite,
+            contentDescription = null,
+            tint = tint
+        )
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawLine(
+                color = Color.Red,
+                start = Offset(2.dp.toPx(), 2.dp.toPx()),
+                end = Offset(size.width - 2.dp.toPx(), size.height - 2.dp.toPx()),
+                strokeWidth = 3.dp.toPx()
+            )
+        }
+    }
+}
+
+@Composable
 private fun ControlColumn(
     viewModel: me.june8th.speakez.ui.home.HomeViewModel,
     modifier: Modifier = Modifier,
     isEditMode: Boolean = false,
     selectedIndices: List<Int> = emptyList(),
-    onDeleteClick: () -> Unit = {}
+    onDeleteClick: () -> Unit = {},
+    onAddToFavoritesClick: () -> Unit = {}
 ) {
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val currentPage by viewModel.currentPage.collectAsState()
@@ -1369,6 +1427,7 @@ private fun ControlColumn(
     val canGoBack = selectedCategory != "CATEGORIES_ROOT" && selectedCategory != null
     val canGoPrev = currentPage > 0
     val canGoNext = currentPage < totalPages - 1
+    val isEditingFavorites = selectedCategory == "FAVORITES"
 
     Column(
         modifier = modifier
@@ -1378,13 +1437,29 @@ private fun ControlColumn(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (isEditMode) {
-            ControlButton(
-                icon = Icons.Default.Delete,
-                text = "Xóa",
-                enabled = selectedIndices.isNotEmpty(),
-                onClick = onDeleteClick,
-                modifier = Modifier.weight(1f)
-            )
+            if (isEditingFavorites) {
+                // Edit Favorites mode: Bỏ yêu thích
+                ControlButton(
+                    icon = null,
+                    text = "Bỏ yêu",
+                    enabled = selectedIndices.isNotEmpty(),
+                    onClick = onDeleteClick,
+                    modifier = Modifier.weight(1f),
+                    iconContent = {
+                        UnfavoriteIcon(tint = if (selectedIndices.isNotEmpty()) Color.White else Color.White.copy(alpha = 0.35f))
+                    }
+                )
+            } else {
+                // Edit Recommendation mode: Xóa
+                ControlButton(
+                    icon = Icons.Default.Delete,
+                    text = "Xóa",
+                    enabled = selectedIndices.isNotEmpty(),
+                    onClick = onDeleteClick,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
             ControlButton(
                 icon = Icons.Default.Home,
                 text = "Trang chủ",
@@ -1396,13 +1471,25 @@ private fun ControlColumn(
                 },
                 modifier = Modifier.weight(1f)
             )
-            ControlButton(
-                icon = Icons.Default.Favorite,
-                text = "Ưa thích",
-                enabled = false,
-                onClick = {},
-                modifier = Modifier.weight(1f)
-            )
+
+            if (isEditingFavorites) {
+                ControlButton(
+                    icon = Icons.Default.Favorite,
+                    text = "Ưa thích",
+                    enabled = false,
+                    onClick = {},
+                    modifier = Modifier.weight(1f)
+                )
+            } else {
+                // Edit Recommendation mode: add selected items to Favorites
+                ControlButton(
+                    icon = Icons.Default.Favorite,
+                    text = "Thêm Yêu",
+                    enabled = selectedIndices.isNotEmpty(),
+                    onClick = onAddToFavoritesClick,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         } else {
             ControlButton(
                 icon = Icons.AutoMirrored.Filled.Undo,
@@ -1424,8 +1511,8 @@ private fun ControlColumn(
             ControlButton(
                 icon = Icons.Default.Favorite,
                 text = "Ưa thích",
-                enabled = false,
-                onClick = {},
+                enabled = true,
+                onClick = { viewModel.selectCategory("FAVORITES") },
                 modifier = Modifier.weight(1f)
             )
         }
@@ -1448,11 +1535,12 @@ private fun ControlColumn(
 
 @Composable
 private fun ControlButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: androidx.compose.ui.graphics.vector.ImageVector?,
     text: String,
     enabled: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    iconContent: @Composable (() -> Unit)? = null
 ) {
     val backgroundColor = if (enabled) {
         Color(0xFF3E2723) // Sleek dark brown color
@@ -1480,12 +1568,16 @@ private fun ControlButton(
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxSize().padding(2.dp)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = text,
-                tint = contentColor,
-                modifier = Modifier.size(24.dp)
-            )
+            if (iconContent != null) {
+                iconContent()
+            } else if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = text,
+                    tint = contentColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = text,
