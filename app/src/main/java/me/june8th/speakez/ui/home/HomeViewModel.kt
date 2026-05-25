@@ -42,6 +42,7 @@ class HomeViewModel @Inject constructor(
     val categories: StateFlow<List<MulberryCategory>> = _categories.asStateFlow()
 
     private val _symbols = MutableStateFlow<List<MulberrySymbol>>(emptyList())
+    val allSymbols: StateFlow<List<MulberrySymbol>> = _symbols.asStateFlow()
 
     private val _recommendationSymbols = MutableStateFlow<List<MulberrySymbol>>(emptyList())
     val recommendationSymbols: StateFlow<List<MulberrySymbol>> = _recommendationSymbols.asStateFlow()
@@ -286,6 +287,16 @@ class HomeViewModel @Inject constructor(
         _recommendationSymbols.value = currentList
     }
 
+    fun addSymbolToRecommendation(index: Int, symbol: MulberrySymbol): Boolean {
+        val currentList = _recommendationSymbols.value.toMutableList()
+        if (index !in currentList.indices) return false
+        if (!currentList[index].id.startsWith("PLACEHOLDER")) return false
+        if (currentList.any { it.id == symbol.id }) return false
+        currentList[index] = symbol
+        _recommendationSymbols.value = currentList
+        return true
+    }
+
     fun addRecommendedToFavorites(indices: List<Int>) {
         val currentRec = _recommendationSymbols.value
         val currentFav = _favoriteSymbols.value.toMutableList()
@@ -335,6 +346,16 @@ class HomeViewModel @Inject constructor(
             }
         }
         _favoriteSymbols.value = currentList
+    }
+
+    fun addSymbolToFavorites(index: Int, symbol: MulberrySymbol): Boolean {
+        val currentList = _favoriteSymbols.value.toMutableList()
+        if (index !in currentList.indices) return false
+        if (!currentList[index].id.startsWith("PLACEHOLDER")) return false
+        if (currentList.any { it.id == symbol.id }) return false
+        currentList[index] = symbol
+        _favoriteSymbols.value = currentList
+        return true
     }
 
     fun saveEditChanges() {

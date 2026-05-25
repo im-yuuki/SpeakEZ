@@ -74,6 +74,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.draw.alpha
 import coil3.compose.AsyncImage
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import me.june8th.speakez.R
 import me.june8th.speakez.domain.model.MulberryCategory
 import me.june8th.speakez.domain.model.MulberrySymbol
@@ -133,10 +136,36 @@ fun HomeScreen(
     androidx.compose.runtime.LaunchedEffect(isEditMode) {
         selectedIndices.clear()
     }
+    var showSymbolPicker by remember { mutableStateOf(false) }
+    var pendingPlaceholderIndex by remember { mutableStateOf(-1) }
 
     val topBarBackground = Color(0xFF1E1E24)
     val buttonColor = MaterialTheme.colorScheme.primary
     val buttonTextColor = MaterialTheme.colorScheme.onPrimary
+
+    // Symbol Picker Dialog
+    if (showSymbolPicker && isEditMode) {
+        val recSymbols by viewModel.recommendationSymbols.collectAsState()
+        val favSymbols by viewModel.favoriteSymbols.collectAsState()
+        val currentEditList = if (selectedCategory == "FAVORITES") favSymbols else recSymbols
+        val existingIds = remember(currentEditList) {
+            currentEditList.filter { !it.id.startsWith("PLACEHOLDER") }.map { it.id }.toSet()
+        }
+
+        SymbolPickerDialog(
+            viewModel = viewModel,
+            existingIds = existingIds,
+            onSymbolSelected = { symbol ->
+                if (selectedCategory == "FAVORITES") {
+                    viewModel.addSymbolToFavorites(pendingPlaceholderIndex, symbol)
+                } else {
+                    viewModel.addSymbolToRecommendation(pendingPlaceholderIndex, symbol)
+                }
+                showSymbolPicker = false
+            },
+            onDismiss = { showSymbolPicker = false }
+        )
+    }
 
     Column(
         modifier = modifier
@@ -515,7 +544,11 @@ fun HomeScreen(
                     rows = gridRows,
                     isLandscape = true,
                     isEditMode = isEditMode,
-                    selectedIndices = selectedIndices
+                    selectedIndices = selectedIndices,
+                    onPlaceholderClick = { index ->
+                        pendingPlaceholderIndex = index
+                        showSymbolPicker = true
+                    }
                 )
 
                 // Control Column on the right
@@ -565,7 +598,11 @@ fun HomeScreen(
                 columns = 2,
                 isLandscape = false,
                 isEditMode = isEditMode,
-                selectedIndices = selectedIndices
+                selectedIndices = selectedIndices,
+                onPlaceholderClick = { index ->
+                    pendingPlaceholderIndex = index
+                    showSymbolPicker = true
+                }
             )
         }
     }
@@ -856,9 +893,11 @@ private fun CategoryChip(
 private fun PlaceholderCard(
     isLandscape: Boolean = false,
     cardHeight: androidx.compose.ui.unit.Dp = 156.dp,
+    onClick: (() -> Unit)? = null,
 ) {
     val height = if (isLandscape) cardHeight else 156.dp
     Surface(
+        onClick = onClick ?: {},
         color = Color.LightGray.copy(alpha = 0.15f),
         shape = MaterialTheme.shapes.medium,
         modifier = Modifier
@@ -892,6 +931,7 @@ private fun SymbolGrid(
     rows: Int = 4,
     isEditMode: Boolean = false,
     selectedIndices: androidx.compose.runtime.snapshots.SnapshotStateList<Int> = remember { androidx.compose.runtime.mutableStateListOf() },
+    onPlaceholderClick: (Int) -> Unit = {},
 ) {
     val gridColumns = if (columns < 1) 1 else columns
     val symbols = if (isLandscape) {
@@ -958,7 +998,8 @@ private fun SymbolGrid(
                                 if (isPlaceholder) {
                                     PlaceholderCard(
                                         isLandscape = true,
-                                        cardHeight = cardHeight
+                                        cardHeight = cardHeight,
+                                        onClick = if (isEditMode) { { onPlaceholderClick(overallIndex) } } else null
                                     )
                                 } else {
                                     val showAsFolder = if (isRecommendationOrFavorites) symbol.isRepresentative else isRootFolders
@@ -1050,7 +1091,8 @@ private fun SymbolGrid(
 
                             if (isPlaceholder) {
                                 PlaceholderCard(
-                                    isLandscape = false
+                                    isLandscape = false,
+                                    onClick = if (isEditMode) { { onPlaceholderClick(overallIndex) } } else null
                                 )
                             } else {
                                 val showAsFolder = if (isRecommendationOrFavorites) symbol.isRepresentative else isRootFolders
@@ -1586,6 +1628,184 @@ private fun ControlButton(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+    }
+}
+
+@Composable
+private fun SymbolPickerDialog(
+    viewModel: HomeViewModel,
+    existingIds: Set<String>,
+    onSymbolSelected: (MulberrySymbol) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val allSymbols by viewModel.allSymbols.collectAsState()
+    val categories by viewModel.categories.collectAsState()
+    var searchQuery by remember { mutableStateOf("") }
+    var dialogCategory by remember { mutableStateOf<String?>("CATEGORIES_ROOT") }
+    val isInCategory = dialogCategory != "CATEGORIES_ROOT" && dialogCategory != null && searchQuery.isBlank()
+
+    val displaySymbols = when {
+        searchQuery.isNotBlank() -> {
+            allSymbols.filter { sym ->
+                !sym.id.startsWith("PLACEHOLDER") &&
+                !existingIds.contains(sym.id) &&
+                (sym.symbolVi.contains(searchQuery, ignoreCase = true) ||
+                 sym.symbolEn.contains(searchQuery, ignoreCase = true) ||
+                 sym.categoryVi.contains(searchQuery, ignoreCase = true))
+            }.sortedBy { it.symbolVi.lowercase() }
+        }
+        dialogCategory == "CATEGORIES_ROOT" || dialogCategory == null -> {
+            allSymbols.filter { it.isRepresentative }
+                .distinctBy { it.categoryId }
+                .sortedBy { it.categoryVi.lowercase() }
+        }
+        else -> {
+            allSymbols.filter { sym ->
+                sym.categoryId == dialogCategory &&
+                !sym.id.startsWith("PLACEHOLDER") &&
+                !existingIds.contains(sym.id)
+            }.sortedBy { it.symbolVi.lowercase() }
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.88f)
+                .fillMaxHeight(0.94f),
+            shape = MaterialTheme.shapes.medium,
+            color = Color(0xFF2A2A32),
+            tonalElevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // Search bar row (replaces header)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    if (isInCategory) {
+                        IconButton(
+                            onClick = { dialogCategory = "CATEGORIES_ROOT" },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Quay lại",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = {
+                            searchQuery = it
+                            if (it.isNotBlank()) dialogCategory = "CATEGORIES_ROOT"
+                        },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        singleLine = true,
+                        placeholder = {
+                            Text(
+                                text = if (isInCategory) {
+                                    val cat = categories.firstOrNull { it.id == dialogCategory }
+                                    "Tìm trong: ${cat?.title ?: "Danh mục"}..."
+                                } else {
+                                    "Tìm kiếm biểu tượng..."
+                                },
+                                color = Color.Gray,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.Search, null, tint = Color.Gray, modifier = Modifier.size(18.dp))
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotBlank()) {
+                                IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(32.dp)) {
+                                    Icon(Icons.Default.Close, "Xóa", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        },
+                        textStyle = MaterialTheme.typography.bodySmall.copy(color = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f)
+                        )
+                    )
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Đóng",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                // Grid
+                if (displaySymbols.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (searchQuery.isNotBlank()) "Không tìm thấy kết quả" else "Danh mục trống",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.Gray
+                        )
+                    }
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(8),
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        contentPadding = PaddingValues(bottom = 4.dp)
+                    ) {
+                        lazyGridItems(
+                            items = displaySymbols,
+                            key = { it.id }
+                        ) { symbol ->
+                            val isFolderNav = symbol.isRepresentative &&
+                                dialogCategory == "CATEGORIES_ROOT" &&
+                                searchQuery.isBlank()
+
+                            if (isFolderNav) {
+                                FolderCard(
+                                    symbol = symbol,
+                                    onClick = { dialogCategory = symbol.categoryId },
+                                    isLandscape = true,
+                                    cardHeight = 72.dp
+                                )
+                            } else {
+                                SymbolCard(
+                                    symbol = symbol,
+                                    onClick = { onSymbolSelected(symbol) },
+                                    isLandscape = true,
+                                    cardHeight = 72.dp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
