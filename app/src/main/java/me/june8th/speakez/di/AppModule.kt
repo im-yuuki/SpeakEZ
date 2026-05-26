@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.room.Room
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -14,8 +15,12 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import me.june8th.speakez.data.local.SpeakEZDatabase
+import me.june8th.speakez.data.quickphrase.QuickPhraseDao
+import me.june8th.speakez.data.quickphrase.QuickPhraseRepositoryImpl
 import me.june8th.speakez.data.settings.AppSettingsRepository
 import me.june8th.speakez.data.settings.DataStoreAppSettingsRepository
+import me.june8th.speakez.domain.repository.QuickPhraseRepository
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
@@ -39,6 +44,12 @@ abstract class AppBindingsModule {
     abstract fun bindAppSettingsRepository(
         repository: DataStoreAppSettingsRepository,
     ): AppSettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindQuickPhraseRepository(
+        repository: QuickPhraseRepositoryImpl,
+    ): QuickPhraseRepository
 }
 
 @Module
@@ -49,6 +60,23 @@ object AppModule {
     fun provideAppSettingsDataStore(
         @ApplicationContext context: Context,
     ): DataStore<Preferences> = context.appSettingsDataStore
+
+    @Provides
+    @Singleton
+    fun provideSpeakEZDatabase(
+        @ApplicationContext context: Context,
+    ): SpeakEZDatabase {
+        return Room.databaseBuilder(
+            context,
+            SpeakEZDatabase::class.java,
+            "speakez.db",
+        ).build()
+    }
+
+    @Provides
+    fun provideQuickPhraseDao(database: SpeakEZDatabase): QuickPhraseDao {
+        return database.quickPhraseDao()
+    }
 
     @Provides
     @IoDispatcher
