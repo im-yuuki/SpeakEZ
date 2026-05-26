@@ -11,6 +11,7 @@ import me.june8th.speakez.R
 
 object AppRoute {
     const val Login = "login"
+    const val Onboarding = "onboarding"
     const val Main = "main"
 }
 

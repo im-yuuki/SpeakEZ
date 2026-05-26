@@ -37,4 +37,18 @@
     <string name="settings_mulberry_license_url">https://creativecommons.org/licenses/by-sa/4.0/</string>
     <string name="settings_save">Lưu</string>
     <string name="settings_save_success">Cấu hình đã được cập nhật thành công</string>
+
+    <!-- Onboarding wizard -->
+    <string name="onboarding_step_profile_title">Ai đang sử dụng?</string>
+    <string name="onboarding_step_profile_desc">Chọn hồ sơ để bắt đầu sử dụng SpeakEZ</string>
+    <string name="onboarding_step_layout_title">Chọn bố cục</string>
+    <string name="onboarding_step_layout_desc">Số biểu tượng hiển thị trên một trang</string>
+    <string name="onboarding_step_voice_title">Cài đặt giọng nói</string>
+    <string name="onboarding_step_voice_desc">Điều chỉnh tốc độ và cao độ giọng đọc</string>
+    <string name="onboarding_next">Tiếp theo</string>
+    <string name="onboarding_back">Quay lại</string>
+    <string name="onboarding_finish">Hoàn thành</string>
+    <string name="onboarding_test_voice">Nghe thử</string>
+    <string name="onboarding_speed_label">Tốc độ đọc</string>
+    <string name="onboarding_pitch_label">Cao độ giọng</string>
 </resources>
