@@ -34,16 +34,28 @@ class SettingsViewModel @Inject constructor(
     val showLabels: StateFlow<Boolean> = _showLabels.asStateFlow()
     val vocabularyItems: StateFlow<List<VocabularyItem>> = MockVocabularyRepository.allVocabulary
 
+    private val _draftFontScale = MutableStateFlow(DEFAULT_FONT_SCALE)
+    private val _isFontScaleDirty = MutableStateFlow(false)
+
+    private val effectiveFontScale = combine(
+        appSettingsRepository.fontScale,
+        _draftFontScale,
+        _isFontScaleDirty,
+    ) { persistedFontScale, draftFontScale, isDirty ->
+        if (isDirty) draftFontScale else persistedFontScale
+    }
+
     val uiState: StateFlow<SettingsUiState> = combine(
         appSettingsRepository.settings,
+        effectiveFontScale,
         ttsManager.vietnameseVoices,
         _volume,
         _showLabels,
-    ) { settings, voices, volume, showLabels ->
+    ) { settings, fontScale, voices, volume, showLabels ->
         SettingsUiState(
             speechRate = settings.speechRate,
             pitch = settings.pitch,
-            fontScale = settings.fontScale,
+            fontScale = fontScale,
             selectedVoiceId = settings.selectedVoiceId,
             voiceOptions = voices,
             volume = volume,
@@ -54,6 +66,16 @@ class SettingsViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = SettingsUiState(),
     )
+
+    init {
+        viewModelScope.launch {
+            appSettingsRepository.fontScale.collect { persistedFontScale ->
+                if (!_isFontScaleDirty.value) {
+                    _draftFontScale.value = persistedFontScale
+                }
+            }
+        }
+    }
 
     fun setSpeechRate(rate: Float) {
         viewModelScope.launch {
@@ -68,9 +90,8 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setFontScale(fontScale: Float) {
-        viewModelScope.launch {
-            appSettingsRepository.setFontScale(fontScale)
-        }
+        _draftFontScale.value = fontScale
+        _isFontScaleDirty.value = true
     }
 
     fun setSelectedVoiceId(voiceId: String) {
@@ -89,6 +110,12 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun saveSettings() {
+        viewModelScope.launch {
+            if (_isFontScaleDirty.value) {
+                appSettingsRepository.setFontScale(_draftFontScale.value)
+                _isFontScaleDirty.value = false
+            }
+        }
         setVolume(_volume.value)
         setShowLabels(_showLabels.value)
     }
