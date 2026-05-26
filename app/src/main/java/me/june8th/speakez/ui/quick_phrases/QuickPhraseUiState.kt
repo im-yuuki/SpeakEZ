@@ -7,6 +7,7 @@ data class QuickPhraseUiState(
     val phrases: List<QuickPhrase> = emptyList(),
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
+    val isEditorOpen: Boolean = false,
     val editingPhrase: QuickPhrase? = null,
     val draftText: String = "",
     val draftActionType: ActionType = ActionType.NONE,

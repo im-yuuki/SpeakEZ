@@ -3,26 +3,36 @@ package me.june8th.speakez.ui.navigation.screen
 import android.content.Context
 import android.content.res.Configuration
 import android.net.Uri
+import android.view.inputmethod.InputMethodManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeDown
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Save
@@ -37,6 +47,7 @@ import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -55,9 +66,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -65,8 +83,13 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import me.june8th.speakez.R
+import me.june8th.speakez.domain.model.ActionType
+import me.june8th.speakez.domain.model.QuickPhrase
 import me.june8th.speakez.domain.model.VocabularyItem
 import me.june8th.speakez.tts.SystemVoiceOption
+import me.june8th.speakez.ui.quick_phrases.QuickPhraseIntent
+import me.june8th.speakez.ui.quick_phrases.QuickPhraseUiState
+import me.june8th.speakez.ui.quick_phrases.QuickPhrasesViewModel
 import me.june8th.speakez.ui.settings.SettingsViewModel
 
 private val defaultEmojis = listOf("🍚", "💊", "⚽", "😊", "🖐️")
@@ -77,6 +100,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val viewModel: SettingsViewModel = hiltViewModel()
+    val quickPhrasesViewModel: QuickPhrasesViewModel = hiltViewModel()
     val context = LocalContext.current
     val sharedPrefs = remember(context) { context.getSharedPreferences("SpeakEZ_Prefs", Context.MODE_PRIVATE) }
     var gridChoice by remember { mutableStateOf(sharedPrefs.getString("grid_choice", "4x6") ?: "4x6") }
@@ -86,6 +110,7 @@ fun SettingsScreen(
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val vocabulary by viewModel.vocabularyItems.collectAsStateWithLifecycle()
+    val quickPhraseUiState by quickPhrasesViewModel.uiState.collectAsStateWithLifecycle()
 
     var showAddDialog by remember { mutableStateOf(false) }
     var selectedImageItemId by remember { mutableStateOf<String?>(null) }
@@ -409,6 +434,18 @@ fun SettingsScreen(
                 }
                 item {
                     SettingCard(
+                        title = "Quản lý Câu nhanh",
+                        subtitle = "Thêm, sửa hoặc xóa câu nhanh khẩn cấp",
+                        icon = Icons.Filled.Add,
+                    ) {
+                        QuickPhraseManagementSection(
+                            uiState = quickPhraseUiState,
+                            onIntent = quickPhrasesViewModel::onIntent,
+                        )
+                    }
+                }
+                item {
+                    SettingCard(
                         title = "Quản lý Từ vựng",
                         subtitle = "Thêm/ẩn hiện/đổi ảnh từ vựng",
                         icon = Icons.Filled.Add
@@ -441,6 +478,253 @@ fun SettingsScreen(
                 showAddDialog = false
             },
         )
+    }
+
+    if (quickPhraseUiState.isEditorOpen) {
+        EditQuickPhraseDialog(
+            uiState = quickPhraseUiState,
+            onIntent = quickPhrasesViewModel::onIntent,
+        )
+    }
+}
+
+@Composable
+private fun QuickPhraseManagementSection(
+    uiState: QuickPhraseUiState,
+    onIntent: (QuickPhraseIntent) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Button(onClick = { onIntent(QuickPhraseIntent.StartAddPhrase) }) {
+            Icon(imageVector = Icons.Filled.Add, contentDescription = null)
+            Text(text = "Thêm câu nhanh", modifier = Modifier.padding(start = 8.dp))
+        }
+
+        when {
+            uiState.isLoading -> Text(
+                text = "Đang tải câu nhanh",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            uiState.errorMessage != null -> Text(
+                text = uiState.errorMessage,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+
+            uiState.phrases.isEmpty() -> Text(
+                text = "Chưa có câu nhanh",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            else -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                uiState.phrases.forEach { phrase ->
+                    QuickPhraseManagementRow(
+                        phrase = phrase,
+                        onEdit = { onIntent(QuickPhraseIntent.StartEditPhrase(phrase)) },
+                        onDelete = { onIntent(QuickPhraseIntent.DeletePhrase(phrase.id)) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickPhraseManagementRow(
+    phrase: QuickPhrase,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = phrase.text,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = phrase.actionDescription(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = onEdit) {
+                Icon(imageVector = Icons.Filled.Edit, contentDescription = "Sửa câu nhanh")
+            }
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = "Xóa câu nhanh",
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditQuickPhraseDialog(
+    uiState: QuickPhraseUiState,
+    onIntent: (QuickPhraseIntent) -> Unit,
+) {
+    var actionTypeExpanded by remember { mutableStateOf(false) }
+    val isEditing = uiState.editingPhrase != null
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val context = LocalContext.current
+    val view = LocalView.current
+    val focusSink = remember { FocusRequester() }
+    val hideKeyboard = {
+        focusSink.requestFocus()
+        focusManager.clearFocus(force = true)
+        keyboardController?.hide()
+        val inputMethodManager = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        inputMethodManager.hideSoftInputFromWindow(view.windowToken, 0)
+    }
+
+    AlertDialog(
+        onDismissRequest = { hideKeyboard() },
+        title = { Text(if (isEditing) "Sửa câu nhanh" else "Thêm câu nhanh") },
+        text = {
+            Column(
+                modifier = Modifier.pointerInput(Unit) {
+                    detectTapGestures(onTap = { hideKeyboard() })
+                }.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .focusRequester(focusSink)
+                        .focusable(),
+                )
+                OutlinedTextField(
+                    value = uiState.draftText,
+                    onValueChange = { text ->
+                        onIntent(QuickPhraseIntent.DraftTextChanged(text))
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 72.dp),
+                    label = { Text("Nội dung câu") },
+                    singleLine = true,
+                    maxLines = 1,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(
+                        onDone = { hideKeyboard() },
+                    ),
+                )
+
+                ExposedDropdownMenuBox(
+                    expanded = actionTypeExpanded,
+                    onExpandedChange = { actionTypeExpanded = !actionTypeExpanded },
+                ) {
+                    OutlinedTextField(
+                        value = uiState.draftActionType.label(),
+                        onValueChange = {},
+                        readOnly = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 72.dp)
+                            .menuAnchor(
+                                type = ExposedDropdownMenuAnchorType.PrimaryNotEditable,
+                                enabled = true,
+                            ),
+                        label = { Text("Hành động") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = actionTypeExpanded)
+                        },
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                    )
+                    ExposedDropdownMenu(
+                        expanded = actionTypeExpanded,
+                        onDismissRequest = { actionTypeExpanded = false },
+                    ) {
+                        ActionType.entries.forEach { actionType ->
+                            DropdownMenuItem(
+                                text = { Text(actionType.label()) },
+                                onClick = {
+                                    onIntent(QuickPhraseIntent.DraftActionTypeChanged(actionType))
+                                    actionTypeExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+
+                if (uiState.draftActionType != ActionType.NONE) {
+                    OutlinedTextField(
+                        value = uiState.draftActionPayload,
+                        onValueChange = { payload ->
+                            onIntent(QuickPhraseIntent.DraftPayloadChanged(payload))
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 72.dp),
+                        label = {
+                            Text(if (uiState.draftActionType == ActionType.CALL) "Số điện thoại" else "Người nhận")
+                        },
+                        singleLine = true,
+                        maxLines = 1,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(
+                            onDone = { hideKeyboard() },
+                        ),
+                    )
+                }
+
+                if (uiState.errorMessage != null) {
+                    Text(
+                        text = uiState.errorMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onIntent(QuickPhraseIntent.SaveDraft) },
+                enabled = uiState.isDraftValid,
+            ) {
+                Text("Lưu")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { onIntent(QuickPhraseIntent.DismissEditor) }) {
+                Text("Hủy")
+            }
+        },
+    )
+}
+
+private fun QuickPhrase.actionDescription(): String {
+    val payload = actionPayload?.takeIf { it.isNotBlank() }
+    return if (payload == null) {
+        actionType.label()
+    } else {
+        "${actionType.label()} · $payload"
+    }
+}
+
+private fun ActionType.label(): String {
+    return when (this) {
+        ActionType.NONE -> "Không có"
+        ActionType.CALL -> "Gọi điện"
+        ActionType.PUSH_NOTI -> "Thông báo"
     }
 }
 

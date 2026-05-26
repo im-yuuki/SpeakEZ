@@ -63,6 +63,7 @@ class QuickPhrasesViewModel @Inject constructor(
             phrases = phraseState.phrases,
             isLoading = phraseState.isLoading,
             errorMessage = editorState.errorMessage ?: phraseState.errorMessage,
+            isEditorOpen = editorState.isEditorOpen,
             editingPhrase = editorState.editingPhrase,
             draftText = editorState.draftText,
             draftActionType = editorState.draftActionType,
@@ -95,11 +96,12 @@ class QuickPhrasesViewModel @Inject constructor(
     }
 
     private fun startAddPhrase() {
-        editorState.value = QuickPhraseEditorState()
+        editorState.value = QuickPhraseEditorState(isEditorOpen = true)
     }
 
     private fun startEditPhrase(phrase: QuickPhrase) {
         editorState.value = QuickPhraseEditorState(
+            isEditorOpen = true,
             editingPhrase = phrase,
             draftText = phrase.text,
             draftActionType = phrase.actionType,
@@ -185,6 +187,7 @@ private data class QuickPhraseListState(
 )
 
 private data class QuickPhraseEditorState(
+    val isEditorOpen: Boolean = false,
     val editingPhrase: QuickPhrase? = null,
     val draftText: String = "",
     val draftActionType: ActionType = ActionType.NONE,

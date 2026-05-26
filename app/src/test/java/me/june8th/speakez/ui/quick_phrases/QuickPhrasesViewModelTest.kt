@@ -78,6 +78,76 @@ class QuickPhrasesViewModelTest {
     }
 
     @Test
+    fun startAddPhrase_opensEditorWithEmptyDraft() = runTest {
+        val viewModel = createViewModel()
+        collectUiState(viewModel)
+
+        viewModel.onIntent(QuickPhraseIntent.StartAddPhrase)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isEditorOpen)
+        assertNull(state.editingPhrase)
+        assertEquals("", state.draftText)
+        assertEquals(ActionType.NONE, state.draftActionType)
+        assertEquals("", state.draftActionPayload)
+        assertFalse(state.isDraftValid)
+    }
+
+    @Test
+    fun dismissEditor_closesEditor() = runTest {
+        val viewModel = createViewModel()
+        collectUiState(viewModel)
+
+        viewModel.onIntent(QuickPhraseIntent.StartAddPhrase)
+        viewModel.onIntent(QuickPhraseIntent.DismissEditor)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isEditorOpen)
+    }
+
+    @Test
+    fun startEditPhrase_opensEditorAndPrefillsDraft() = runTest {
+        val phrase = quickPhrase(
+            id = "phrase-1",
+            text = "Gọi người thân",
+            actionType = ActionType.CALL,
+            actionPayload = "0900000000",
+        )
+        val viewModel = createViewModel()
+        collectUiState(viewModel)
+
+        viewModel.onIntent(QuickPhraseIntent.StartEditPhrase(phrase))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isEditorOpen)
+        assertEquals(phrase, state.editingPhrase)
+        assertEquals("Gọi người thân", state.draftText)
+        assertEquals(ActionType.CALL, state.draftActionType)
+        assertEquals("0900000000", state.draftActionPayload)
+        assertTrue(state.isDraftValid)
+    }
+
+    @Test
+    fun draftActionTypeChangedToNone_clearsPayloadAndDoesNotRequirePayload() = runTest {
+        val viewModel = createViewModel()
+        collectUiState(viewModel)
+
+        viewModel.onIntent(QuickPhraseIntent.StartAddPhrase)
+        viewModel.onIntent(QuickPhraseIntent.DraftTextChanged("Con bị đau"))
+        viewModel.onIntent(QuickPhraseIntent.DraftActionTypeChanged(ActionType.CALL))
+        viewModel.onIntent(QuickPhraseIntent.DraftPayloadChanged("0900000000"))
+        viewModel.onIntent(QuickPhraseIntent.DraftActionTypeChanged(ActionType.NONE))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(ActionType.NONE, state.draftActionType)
+        assertEquals("", state.draftActionPayload)
+        assertTrue(state.isDraftValid)
+    }
+
+    @Test
     fun saveDraft_withBlankText_doesNotAddPhrase() = runTest {
         val repository = FakeQuickPhraseRepository()
         val viewModel = createViewModel(repository = repository)
