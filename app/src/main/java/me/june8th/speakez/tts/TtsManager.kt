@@ -81,10 +81,10 @@ class TtsManager(
         _vietnameseVoices.value = voices
             .filter { voice -> voice.isLocalVietnameseVoice() }
             .sortedWith(compareBy<Voice> { it.locale.toLanguageTag() }.thenBy { it.name })
-            .map { voice ->
+            .mapIndexed { index, voice ->
                 SystemVoiceOption(
                     id = voice.name,
-                    label = voice.readableLabel(),
+                    label = voice.readableLabel(index),
                     localeTag = voice.locale.toLanguageTag(),
                 )
             }
@@ -132,9 +132,32 @@ class TtsManager(
         return !isNetworkConnectionRequired && locale.language.equals("vi", ignoreCase = true)
     }
 
-    private fun Voice.readableLabel(): String {
-        val localeLabel = locale.getDisplayName(VIETNAMESE_LOCALE)
-        return "$localeLabel - $name"
+    private fun Voice.readableLabel(index: Int): String {
+        val genderLabel = detectedGenderLabel()
+        val ordinalLabel = "Giọng ${index + 1}"
+        return if (genderLabel == null) ordinalLabel else "$ordinalLabel ($genderLabel)"
+    }
+
+    private fun Voice.detectedGenderLabel(): String? {
+        val metadata = buildList {
+            add(name)
+            addAll(features.orEmpty())
+        }.joinToString(separator = " ").lowercase()
+
+        return when {
+            metadata.contains("female") ||
+                metadata.contains("gender=f") ||
+                metadata.contains("gender:f") ||
+                metadata.contains("gender_female") ||
+                metadata.contains(" nu ") ||
+                metadata.contains(" nữ ") -> "Nữ"
+            metadata.contains("male") ||
+                metadata.contains("gender=m") ||
+                metadata.contains("gender:m") ||
+                metadata.contains("gender_male") ||
+                metadata.contains(" nam ") -> "Nam"
+            else -> null
+        }
     }
 
     companion object {
