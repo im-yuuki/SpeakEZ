@@ -35,6 +35,11 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,7 +53,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,10 +63,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.ui.unit.sp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import me.june8th.speakez.R
 import me.june8th.speakez.domain.model.VocabularyItem
+import me.june8th.speakez.tts.SystemVoiceOption
 import me.june8th.speakez.ui.settings.SettingsViewModel
 
 private val defaultEmojis = listOf("🍚", "💊", "⚽", "😊", "🖐️")
@@ -80,11 +87,8 @@ fun SettingsScreen(
     val coroutineScope = rememberCoroutineScope()
     val saveSuccessMessage = androidx.compose.ui.res.stringResource(R.string.settings_save_success)
 
-    val volume by viewModel.volume.collectAsState()
-    val speed by viewModel.speechRate.collectAsState()
-    val pitch by viewModel.pitch.collectAsState()
-    val enableHints by viewModel.showLabels.collectAsState()
-    val vocabulary by viewModel.vocabularyItems.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val vocabulary by viewModel.vocabularyItems.collectAsStateWithLifecycle()
 
     var showAddDialog by remember { mutableStateOf(false) }
     var selectedImageItemId by remember { mutableStateOf<String?>(null) }
@@ -212,7 +216,7 @@ fun SettingsScreen(
                         icon = Icons.Filled.Speaker,
                     ) {
                         Text(
-                            text = "Tốc độ đọc: ${"%.2f".format(speed)}",
+                            text = "Tốc độ đọc: ${"%.2f".format(uiState.speechRate)}",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium
                         )
@@ -227,7 +231,7 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Slider(
-                                value = speed,
+                                value = uiState.speechRate,
                                 onValueChange = viewModel::setSpeechRate,
                                 valueRange = 0.5f..2.0f,
                                 modifier = Modifier.weight(1f)
@@ -240,7 +244,7 @@ fun SettingsScreen(
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Cao độ: ${"%.2f".format(pitch)}",
+                            text = "Cao độ: ${"%.2f".format(uiState.pitch)}",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium
                         )
@@ -255,7 +259,7 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Slider(
-                                value = pitch,
+                                value = uiState.pitch,
                                 onValueChange = viewModel::setPitch,
                                 valueRange = 0.5f..2.0f,
                                 modifier = Modifier.weight(1f)
@@ -267,7 +271,47 @@ fun SettingsScreen(
                             )
                         }
                         Spacer(modifier = Modifier.height(8.dp))
+                        VoicePicker(
+                            selectedVoiceId = uiState.selectedVoiceId,
+                            voiceOptions = uiState.voiceOptions,
+                            onVoiceSelected = viewModel::setSelectedVoiceId,
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
                         Button(onClick = { viewModel.testAudio() }) { Text("Nghe thử") }
+                    }
+                }
+                item {
+                    SettingCard(
+                        title = "Cỡ chữ toàn ứng dụng",
+                        subtitle = "Điều chỉnh kích thước chữ từ thường đến rất lớn",
+                        icon = Icons.Filled.Palette,
+                    ) {
+                        Text(
+                            text = "Tỷ lệ chữ: ${"%.2f".format(uiState.fontScale)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Slider(
+                            value = uiState.fontScale,
+                            onValueChange = viewModel::setFontScale,
+                            valueRange = 0.8f..1.6f,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            shape = MaterialTheme.shapes.medium,
+                        ) {
+                            Text(
+                                text = "Đây là bản xem trước cỡ chữ",
+                                modifier = Modifier.padding(16.dp),
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontSize = (18f * uiState.fontScale).sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                ),
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                        }
                     }
                 }
                 item {
@@ -287,7 +331,7 @@ fun SettingsScreen(
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Slider(
-                                value = volume,
+                                value = uiState.volume,
                                 onValueChange = { viewModel.setVolume(it) },
                                 modifier = Modifier.weight(1f)
                             )
@@ -311,7 +355,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(text = androidx.compose.ui.res.stringResource(R.string.settings_show_labels))
-                            Switch(checked = enableHints, onCheckedChange = { viewModel.setShowLabels(it) })
+                            Switch(checked = uiState.showLabels, onCheckedChange = { viewModel.setShowLabels(it) })
                         }
                     }
                 }
@@ -456,6 +500,74 @@ private fun AddVocabularyDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Hủy") } },
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun VoicePicker(
+    selectedVoiceId: String,
+    voiceOptions: List<SystemVoiceOption>,
+    onVoiceSelected: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val defaultVoiceLabel = "Giọng mặc định của hệ thống"
+    val selectedLabel = voiceOptions.firstOrNull { it.id == selectedVoiceId }?.label
+        ?: defaultVoiceLabel
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "Giọng đọc tiếng Việt",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+        )
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded },
+        ) {
+            OutlinedTextField(
+                value = selectedLabel,
+                onValueChange = {},
+                readOnly = true,
+                enabled = voiceOptions.isNotEmpty(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(
+                        type = ExposedDropdownMenuAnchorType.PrimaryNotEditable,
+                        enabled = voiceOptions.isNotEmpty(),
+                    ),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+            ) {
+                DropdownMenuItem(
+                    text = { Text(defaultVoiceLabel) },
+                    onClick = {
+                        onVoiceSelected("")
+                        expanded = false
+                    },
+                )
+                voiceOptions.forEach { voice ->
+                    DropdownMenuItem(
+                        text = { Text(voice.label) },
+                        onClick = {
+                            onVoiceSelected(voice.id)
+                            expanded = false
+                        },
+                    )
+                }
+            }
+        }
+        if (voiceOptions.isEmpty()) {
+            Text(
+                text = "Không tìm thấy giọng tiếng Việt cài cục bộ",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 @Composable
