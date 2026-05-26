@@ -1,9 +1,11 @@
 package me.june8th.speakez.ui.settings
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,7 +27,21 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val appSettingsRepository: AppSettingsRepository,
     private val ttsManager: TtsManager,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
+
+    private val _speechRate = MutableStateFlow(1.0f)
+    val speechRate: StateFlow<Float> = _speechRate.asStateFlow()
+
+    private val _pitch = MutableStateFlow(1.0f)
+    val pitch: StateFlow<Float> = _pitch.asStateFlow()
+
+    init {
+        val prefs = context.getSharedPreferences("SpeakEZ_Prefs", Context.MODE_PRIVATE)
+        _speechRate.value = prefs.getFloat("speech_rate", 1.0f)
+        _pitch.value = prefs.getFloat("pitch", 1.0f)
+        ttsManager.setVoiceConfig(_speechRate.value, _pitch.value)
+    }
 
     private val _volume = MutableStateFlow(0.8f)
     val volume: StateFlow<Float> = _volume.asStateFlow()
@@ -118,6 +134,11 @@ class SettingsViewModel @Inject constructor(
         }
         setVolume(_volume.value)
         setShowLabels(_showLabels.value)
+        context.getSharedPreferences("SpeakEZ_Prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putFloat("speech_rate", _speechRate.value)
+            .putFloat("pitch", _pitch.value)
+            .apply()
     }
 
     fun testAudio() {
