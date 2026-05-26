@@ -1,11 +1,12 @@
 package me.june8th.speakez.ui.navigation.screen
 
 import android.content.res.Configuration
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,29 +14,34 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import me.june8th.speakez.R
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import me.june8th.speakez.domain.model.ActionType
+import me.june8th.speakez.domain.model.QuickPhrase
+import me.june8th.speakez.ui.quick_phrases.QuickPhraseIntent
+import me.june8th.speakez.ui.quick_phrases.QuickPhraseUiState
 import me.june8th.speakez.ui.quick_phrases.QuickPhrasesViewModel
 
 @Composable
@@ -44,10 +50,7 @@ fun QuickPhrasesScreen(
     modifier: Modifier = Modifier
 ) {
     val viewModel: QuickPhrasesViewModel = hiltViewModel()
-
-    val quickHelpText = stringResource(R.string.quick_help)
-    val quickPainText = stringResource(R.string.quick_pain)
-    val quickCallFamilyText = stringResource(R.string.quick_call_family)
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -92,94 +95,115 @@ fun QuickPhrasesScreen(
                 }
             }
 
-            // Emergency buttons side-by-side
-            Row(
+            QuickPhraseLandscapeContent(
+                uiState = uiState,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                EmergencyButton(
-                    text = quickHelpText,
-                    icon = Icons.Filled.Warning,
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxSize(),
-                    onClick = { viewModel.speakQuickPhrase(quickHelpText) },
-                )
-                EmergencyButton(
-                    text = quickPainText,
-                    icon = Icons.Filled.LocalHospital,
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxSize(),
-                    onClick = { viewModel.speakQuickPhrase(quickPainText) },
-                )
-                EmergencyButton(
-                    text = quickCallFamilyText,
-                    icon = Icons.Filled.Call,
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxSize(),
-                    onClick = { viewModel.speakQuickPhrase(quickCallFamilyText) },
-                )
-            }
+                onPhraseClick = { phrase ->
+                    viewModel.onIntent(QuickPhraseIntent.OnPhraseClicked(phrase))
+                },
+            )
         } else {
-            // Portrait
-            Column(
+            QuickPhrasePortraitContent(
+                uiState = uiState,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
+                onPhraseClick = { phrase ->
+                    viewModel.onIntent(QuickPhraseIntent.OnPhraseClicked(phrase))
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuickPhrasePortraitContent(
+    uiState: QuickPhraseUiState,
+    onPhraseClick: (QuickPhrase) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    when {
+        uiState.isLoading -> StatusText(text = "Đang tải câu nhanh", modifier = modifier)
+        uiState.errorMessage != null -> StatusText(text = uiState.errorMessage, modifier = modifier)
+        uiState.phrases.isEmpty() -> StatusText(text = "Chưa có câu nhanh", modifier = modifier)
+        else -> {
+            LazyColumn(
+                modifier = modifier,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                EmergencyButton(
-                    text = quickHelpText,
-                    icon = Icons.Filled.Warning,
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .heightIn(min = 140.dp),
-                    onClick = { viewModel.speakQuickPhrase(quickHelpText) },
-                )
-                EmergencyButton(
-                    text = quickPainText,
-                    icon = Icons.Filled.LocalHospital,
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .heightIn(min = 140.dp),
-                    onClick = { viewModel.speakQuickPhrase(quickPainText) },
-                )
-                EmergencyButton(
-                    text = quickCallFamilyText,
-                    icon = Icons.Filled.Call,
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .heightIn(min = 140.dp),
-                    onClick = { viewModel.speakQuickPhrase(quickCallFamilyText) },
-                )
+                items(uiState.phrases, key = QuickPhrase::id) { phrase ->
+                    EmergencyButton(
+                        text = phrase.text,
+                        icon = phrase.actionIcon(),
+                        containerColor = phrase.containerColor(),
+                        contentColor = phrase.contentColor(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 140.dp),
+                        onClick = { onPhraseClick(phrase) },
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
+private fun QuickPhraseLandscapeContent(
+    uiState: QuickPhraseUiState,
+    onPhraseClick: (QuickPhrase) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    when {
+        uiState.isLoading -> StatusText(text = "Đang tải câu nhanh", modifier = modifier)
+        uiState.errorMessage != null -> StatusText(text = uiState.errorMessage, modifier = modifier)
+        uiState.phrases.isEmpty() -> StatusText(text = "Chưa có câu nhanh", modifier = modifier)
+        else -> {
+            LazyRow(
+                modifier = modifier,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                items(uiState.phrases, key = QuickPhrase::id) { phrase ->
+                    EmergencyButton(
+                        text = phrase.text,
+                        icon = phrase.actionIcon(),
+                        containerColor = phrase.containerColor(),
+                        contentColor = phrase.contentColor(),
+                        modifier = Modifier
+                            .width(260.dp)
+                            .fillMaxHeight(),
+                        onClick = { onPhraseClick(phrase) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusText(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
 private fun EmergencyButton(
     text: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     containerColor: Color,
     contentColor: Color,
     modifier: Modifier = Modifier,
@@ -209,5 +233,31 @@ private fun EmergencyButton(
                 fontWeight = FontWeight.Bold,
             )
         }
+    }
+}
+
+private fun QuickPhrase.actionIcon(): ImageVector {
+    return when (actionType) {
+        ActionType.CALL -> Icons.Filled.Call
+        ActionType.PUSH_NOTI -> Icons.Filled.Notifications
+        ActionType.NONE -> Icons.Filled.Warning
+    }
+}
+
+@Composable
+private fun QuickPhrase.containerColor(): Color {
+    return when (actionType) {
+        ActionType.CALL -> MaterialTheme.colorScheme.tertiaryContainer
+        ActionType.PUSH_NOTI -> MaterialTheme.colorScheme.errorContainer
+        ActionType.NONE -> MaterialTheme.colorScheme.secondaryContainer
+    }
+}
+
+@Composable
+private fun QuickPhrase.contentColor(): Color {
+    return when (actionType) {
+        ActionType.CALL -> MaterialTheme.colorScheme.onTertiaryContainer
+        ActionType.PUSH_NOTI -> MaterialTheme.colorScheme.onErrorContainer
+        ActionType.NONE -> MaterialTheme.colorScheme.onSecondaryContainer
     }
 }

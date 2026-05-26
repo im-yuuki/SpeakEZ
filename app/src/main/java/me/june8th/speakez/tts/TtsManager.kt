@@ -20,12 +20,22 @@ import me.june8th.speakez.di.ApplicationScope
 import java.util.Locale
 import javax.inject.Singleton
 
+interface TextSpeaker {
+    fun speak(
+        text: String,
+        speechRate: Float? = null,
+        pitch: Float? = null,
+    )
+
+    fun stop()
+}
+
 @Singleton
 class TtsManager(
     private val context: Context,
     private val appSettingsRepository: AppSettingsRepository,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
-) {
+) : TextSpeaker {
     private var tts: TextToSpeech? = null
     private var isInitialized = false
     private var settingsJob: Job? = null
@@ -48,10 +58,10 @@ class TtsManager(
         }
     }
 
-    fun speak(
+    override fun speak(
         text: String,
-        speechRate: Float? = null,
-        pitch: Float? = null,
+        speechRate: Float?,
+        pitch: Float?,
     ) {
         if (!isInitialized || text.isBlank()) return
         speechRate?.let { setSpeed(it) }
@@ -59,7 +69,7 @@ class TtsManager(
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
     }
 
-    fun stop() {
+    override fun stop() {
         tts?.stop()
     }
 

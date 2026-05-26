@@ -21,6 +21,8 @@ import me.june8th.speakez.data.quickphrase.QuickPhraseRepositoryImpl
 import me.june8th.speakez.data.settings.AppSettingsRepository
 import me.june8th.speakez.data.settings.DataStoreAppSettingsRepository
 import me.june8th.speakez.domain.repository.QuickPhraseRepository
+import me.june8th.speakez.tts.TextSpeaker
+import me.june8th.speakez.tts.TtsManager
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
@@ -50,6 +52,12 @@ abstract class AppBindingsModule {
     abstract fun bindQuickPhraseRepository(
         repository: QuickPhraseRepositoryImpl,
     ): QuickPhraseRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTextSpeaker(
+        ttsManager: TtsManager,
+    ): TextSpeaker
 }
 
 @Module
