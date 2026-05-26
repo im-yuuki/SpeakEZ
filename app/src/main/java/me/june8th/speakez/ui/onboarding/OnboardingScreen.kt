@@ -9,6 +9,11 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,9 +26,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -44,27 +54,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import me.june8th.speakez.R
-
-private data class OnboardingProfile(
-    val name: String,
-    val colors: List<Color>,
-    val initials: String,
-)
-
-private val onboardingProfiles = listOf(
-    OnboardingProfile("Bé Na", listOf(Color(0xFFB3E5FC), Color(0xFF1976D2)), "BN"),
-    OnboardingProfile("Ông Nội", listOf(Color(0xFFD1C4E9), Color(0xFF673AB7)), "ON"),
-    OnboardingProfile("Chị Lan", listOf(Color(0xFFC8E6C9), Color(0xFF2E7D32)), "CL"),
-)
 
 private val layoutOptions = listOf(
     Triple("3×5", 3, 5),
@@ -78,10 +74,11 @@ fun OnboardingScreen(
     modifier: Modifier = Modifier,
 ) {
     val viewModel: OnboardingViewModel = hiltViewModel()
+
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    var currentStep by remember { mutableIntStateOf(0) }
+    var currentStep by rememberSaveable { mutableIntStateOf(0) }
     val totalSteps = 3
 
     val stepTitles = listOf(
@@ -95,7 +92,7 @@ fun OnboardingScreen(
         stringResource(R.string.onboarding_step_voice_desc),
     )
 
-    val canProceed = if (currentStep == 0) viewModel.selectedProfile.value != null else true
+    val canProceed = if (currentStep == 0) viewModel.isAuthFormValid() else true
 
     if (isLandscape) {
         Row(modifier = modifier.fillMaxSize()) {
@@ -153,7 +150,7 @@ fun OnboardingScreen(
                     label = "step_content",
                 ) { step ->
                     when (step) {
-                        0 -> ProfileStep(viewModel = viewModel)
+                        0 -> AuthStep(viewModel = viewModel)
                         1 -> LayoutStep(viewModel = viewModel)
                         else -> VoiceStep(viewModel = viewModel)
                     }
@@ -178,37 +175,39 @@ fun OnboardingScreen(
         Column(
             modifier = modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .padding(horizontal = 20.dp),
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF1E1E24), shape = MaterialTheme.shapes.medium)
-                    .padding(16.dp),
-            ) {
-                Text(
-                    text = "SpeakEZ",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                ProgressDots(current = currentStep, total = totalSteps)
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = stepTitles[currentStep],
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                )
-                Text(
-                    text = stepDescs[currentStep],
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.65f),
-                )
-            }
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Text(
+                text = "SpeakEZ",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            LinearProgressIndicator(
+                progress = { (currentStep + 1).toFloat() / totalSteps },
+                modifier = Modifier.fillMaxWidth(),
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = stepTitles[currentStep],
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = stepDescs[currentStep],
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             AnimatedContent(
                 targetState = currentStep,
@@ -225,13 +224,11 @@ fun OnboardingScreen(
                 label = "step_content",
             ) { step ->
                 when (step) {
-                    0 -> ProfileStep(viewModel = viewModel)
+                    0 -> AuthStep(viewModel = viewModel)
                     1 -> LayoutStep(viewModel = viewModel)
                     else -> VoiceStep(viewModel = viewModel)
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
 
             NavButtons(
                 currentStep = currentStep,
@@ -246,6 +243,8 @@ fun OnboardingScreen(
                     }
                 },
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -268,84 +267,121 @@ private fun ProgressDots(current: Int, total: Int) {
 }
 
 @Composable
-private fun ProfileStep(viewModel: OnboardingViewModel) {
+private fun AuthStep(viewModel: OnboardingViewModel) {
+    val isSignUp = viewModel.isSignUp.value
+    var showPassword by remember { mutableStateOf(false) }
+    var showConfirm by remember { mutableStateOf(false) }
+    val passwordsMatch = viewModel.password.value == viewModel.confirmPassword.value
+
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            items(onboardingProfiles) { profile ->
-                val selected = viewModel.selectedProfile.value == profile.name
-                ProfileCard(
-                    name = profile.name,
-                    initials = profile.initials,
-                    colors = profile.colors,
-                    selected = selected,
-                    onClick = { viewModel.selectedProfile.value = profile.name },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProfileCard(
-    name: String,
-    initials: String,
-    colors: List<Color>,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.size(width = 130.dp, height = 170.dp),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 8.dp else 4.dp),
-        border = BorderStroke(
-            width = if (selected) 3.dp else 1.dp,
-            color = if (selected) MaterialTheme.colorScheme.primary else Color.LightGray.copy(alpha = 0.4f),
-        ),
-    ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(brush = Brush.linearGradient(colors)),
-                contentAlignment = Alignment.Center,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(
-                    text = initials,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                listOf(false, true).forEach { signUpMode ->
+                    val selected = isSignUp == signUpMode
+                    Surface(
+                        onClick = {
+                            viewModel.isSignUp.value = signUpMode
+                            viewModel.password.value = ""
+                            viewModel.confirmPassword.value = ""
+                        },
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        color = if (selected) MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.surfaceVariant,
+                        shape = MaterialTheme.shapes.medium,
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = if (selected) MaterialTheme.colorScheme.primary
+                                   else Color.LightGray.copy(alpha = 0.5f),
+                        ),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = if (signUpMode) stringResource(R.string.auth_signup)
+                                       else stringResource(R.string.auth_login),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (selected) MaterialTheme.colorScheme.onPrimary
+                                       else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (isSignUp) {
+                OutlinedTextField(
+                    value = viewModel.fullName.value,
+                    onValueChange = { viewModel.fullName.value = it },
+                    label = { Text(stringResource(R.string.auth_full_name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(
-                text = name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
+
+            OutlinedTextField(
+                value = viewModel.email.value,
+                onValueChange = { viewModel.email.value = it },
+                label = { Text(stringResource(R.string.auth_email)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
             )
-            if (selected) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp),
+
+            OutlinedTextField(
+                value = viewModel.password.value,
+                onValueChange = { viewModel.password.value = it },
+                label = { Text(stringResource(R.string.auth_password)) },
+                singleLine = true,
+                visualTransformation = if (showPassword) VisualTransformation.None
+                                       else PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { showPassword = !showPassword }) {
+                        Icon(
+                            imageVector = if (showPassword) Icons.Default.VisibilityOff
+                                          else Icons.Default.Visibility,
+                            contentDescription = null,
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            if (isSignUp) {
+                OutlinedTextField(
+                    value = viewModel.confirmPassword.value,
+                    onValueChange = { viewModel.confirmPassword.value = it },
+                    label = { Text(stringResource(R.string.auth_confirm_password)) },
+                    singleLine = true,
+                    visualTransformation = if (showConfirm) VisualTransformation.None
+                                           else PasswordVisualTransformation(),
+                    isError = viewModel.confirmPassword.value.isNotBlank() && !passwordsMatch,
+                    supportingText = {
+                        if (viewModel.confirmPassword.value.isNotBlank() && !passwordsMatch) {
+                            Text(stringResource(R.string.auth_passwords_no_match))
+                        }
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = { showConfirm = !showConfirm }) {
+                            Icon(
+                                imageVector = if (showConfirm) Icons.Default.VisibilityOff
+                                              else Icons.Default.Visibility,
+                                contentDescription = null,
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
@@ -359,6 +395,7 @@ private fun LayoutStep(viewModel: OnboardingViewModel) {
         contentAlignment = Alignment.Center,
     ) {
         Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

@@ -38,9 +38,18 @@
     <string name="settings_save">Lưu</string>
     <string name="settings_save_success">Cấu hình đã được cập nhật thành công</string>
 
+    <!-- Onboarding auth -->
+    <string name="auth_login">Đăng nhập</string>
+    <string name="auth_signup">Đăng ký</string>
+    <string name="auth_email">Email</string>
+    <string name="auth_password">Mật khẩu</string>
+    <string name="auth_confirm_password">Nhập lại mật khẩu</string>
+    <string name="auth_full_name">Họ và tên</string>
+    <string name="auth_passwords_no_match">Mật khẩu không khớp</string>
+
     <!-- Onboarding wizard -->
-    <string name="onboarding_step_profile_title">Ai đang sử dụng?</string>
-    <string name="onboarding_step_profile_desc">Chọn hồ sơ để bắt đầu sử dụng SpeakEZ</string>
+    <string name="onboarding_step_profile_title">Tài khoản của bạn</string>
+    <string name="onboarding_step_profile_desc">Đăng nhập hoặc tạo tài khoản mới để bắt đầu</string>
     <string name="onboarding_step_layout_title">Chọn bố cục</string>
     <string name="onboarding_step_layout_desc">Số biểu tượng hiển thị trên một trang</string>
     <string name="onboarding_step_voice_title">Cài đặt giọng nói</string>
