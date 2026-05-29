@@ -22,6 +22,11 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -44,9 +49,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import me.june8th.speakez.domain.model.AccountGender
 import me.june8th.speakez.domain.model.AccountProfile
 import me.june8th.speakez.domain.model.AccountType
 import me.june8th.speakez.ui.auth.ProfileViewModel
+import me.june8th.speakez.ui.common.DateOfBirthField
 
 @Composable
 fun AccountScreen(
@@ -62,10 +69,14 @@ fun AccountScreen(
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     var displayName by remember { mutableStateOf("") }
+    var dateOfBirth by remember { mutableStateOf("") }
+    var gender by remember { mutableStateOf(AccountGender.UNSPECIFIED) }
 
-    LaunchedEffect(profile?.uid, profile?.isGuest) {
+    LaunchedEffect(profile?.uid, profile?.isGuest, profile?.displayName, profile?.dateOfBirth, profile?.gender) {
         profile?.let {
             displayName = it.displayName
+            dateOfBirth = it.dateOfBirth
+            gender = it.gender
         }
     }
 
@@ -125,9 +136,13 @@ fun AccountScreen(
                     AccountProfileContent(
                         profile = profile,
                         displayName = displayName,
+                        dateOfBirth = dateOfBirth,
+                        gender = gender,
                         isSaving = actionState.isSaving,
                         onDisplayNameChange = { displayName = it },
-                        onSave = { viewModel.saveProfile(displayName) },
+                        onDateOfBirthChange = { dateOfBirth = it },
+                        onGenderChange = { gender = it },
+                        onSave = { viewModel.saveProfile(displayName, dateOfBirth, gender) },
                         onSignOut = {
                             viewModel.signOut()
                             onLoginRequested()
@@ -194,8 +209,12 @@ private fun AccountLandscapeTopBar(onBackClick: () -> Unit) {
 private fun AccountProfileContent(
     profile: AccountProfile?,
     displayName: String,
+    dateOfBirth: String,
+    gender: AccountGender,
     isSaving: Boolean,
     onDisplayNameChange: (String) -> Unit,
+    onDateOfBirthChange: (String) -> Unit,
+    onGenderChange: (AccountGender) -> Unit,
     onSave: () -> Unit,
     onSignOut: () -> Unit,
     onLoginRequested: () -> Unit,
@@ -237,6 +256,15 @@ private fun AccountProfileContent(
             label = { Text("Tên hồ sơ") },
             singleLine = true,
         )
+        DateOfBirthField(
+            value = dateOfBirth,
+            onValueChange = onDateOfBirthChange,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        GenderDropdown(
+            selected = gender,
+            onSelected = onGenderChange,
+        )
         AccountTypeReadOnly(accountType = profile.accountType)
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -258,6 +286,49 @@ private fun AccountProfileContent(
                 TextButton(onClick = onSignOut, modifier = Modifier.weight(1f)) {
                     Text("Đăng xuất")
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GenderDropdown(
+    selected: AccountGender,
+    onSelected: (AccountGender) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+    ) {
+        OutlinedTextField(
+            value = selected.label,
+            onValueChange = {},
+            readOnly = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(
+                    type = ExposedDropdownMenuAnchorType.PrimaryNotEditable,
+                    enabled = true,
+                ),
+            label = { Text("Giới tính") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            AccountGender.entries.forEach { gender ->
+                DropdownMenuItem(
+                    text = { Text(gender.label) },
+                    onClick = {
+                        onSelected(gender)
+                        expanded = false
+                    },
+                )
             }
         }
     }
@@ -290,4 +361,12 @@ private val AccountType.label: String
     get() = when (this) {
         AccountType.USER -> "Người dùng"
         AccountType.GUARDIAN -> "Người giám hộ"
+    }
+
+private val AccountGender.label: String
+    get() = when (this) {
+        AccountGender.UNSPECIFIED -> "Chưa chọn"
+        AccountGender.MALE -> "Nam"
+        AccountGender.FEMALE -> "Nữ"
+        AccountGender.OTHER -> "Khác"
     }

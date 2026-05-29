@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import me.june8th.speakez.domain.model.AccountGender
 import me.june8th.speakez.domain.repository.AuthRepository
 import javax.inject.Inject
 
@@ -25,10 +26,10 @@ class ProfileViewModel @Inject constructor(
     private val _actionState = MutableStateFlow(ProfileActionState())
     val actionState: StateFlow<ProfileActionState> = _actionState.asStateFlow()
 
-    fun saveProfile(displayName: String) {
+    fun saveProfile(displayName: String, dateOfBirth: String, gender: AccountGender) {
         viewModelScope.launch {
             _actionState.update { it.copy(isSaving = true, message = null) }
-            runCatching { authRepository.saveProfile(displayName) }
+            runCatching { authRepository.saveProfile(displayName, dateOfBirth, gender) }
                 .onSuccess { _actionState.update { it.copy(isSaving = false, message = "Đã cập nhật hồ sơ") } }
                 .onFailure { throwable ->
                     _actionState.update {

@@ -6,6 +6,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import me.june8th.speakez.domain.model.AccountGender
 import me.june8th.speakez.domain.model.AccountType
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -43,10 +44,16 @@ class LocalSessionStore @Inject constructor(
 
     fun getGuestAccountType(): AccountType = AccountType.USER
 
-    fun saveGuestProfile(displayName: String) {
+    fun getGuestDateOfBirth(): String = prefs.getString(KEY_GUEST_DATE_OF_BIRTH, "") ?: ""
+
+    fun getGuestGender(): AccountGender = AccountGender.fromStored(prefs.getString(KEY_GUEST_GENDER, null))
+
+    fun saveGuestProfile(displayName: String, dateOfBirth: String, gender: AccountGender) {
         prefs.edit {
             putString(KEY_GUEST_DISPLAY_NAME, displayName.ifBlank { DEFAULT_GUEST_NAME })
             putString(KEY_GUEST_ACCOUNT_TYPE, AccountType.USER.name)
+            putString(KEY_GUEST_DATE_OF_BIRTH, dateOfBirth)
+            putString(KEY_GUEST_GENDER, gender.name)
         }
         bump()
     }
@@ -57,12 +64,24 @@ class LocalSessionStore @Inject constructor(
 
     fun getAccountType(uid: String): AccountType = AccountType.fromStored(prefs.getString(accountTypeKey(uid), null))
 
+    fun getDateOfBirth(uid: String): String = prefs.getString(dateOfBirthKey(uid), "") ?: ""
+
+    fun getGender(uid: String): AccountGender = AccountGender.fromStored(prefs.getString(genderKey(uid), null))
+
     fun hasAccountType(uid: String): Boolean = prefs.contains(accountTypeKey(uid))
 
-    fun saveFirebaseProfile(uid: String, displayName: String, accountType: AccountType) {
+    fun saveFirebaseProfile(
+        uid: String,
+        displayName: String,
+        accountType: AccountType,
+        dateOfBirth: String = getDateOfBirth(uid),
+        gender: AccountGender = getGender(uid),
+    ) {
         prefs.edit {
             putString(displayNameKey(uid), displayName)
             putString(accountTypeKey(uid), accountType.name)
+            putString(dateOfBirthKey(uid), dateOfBirth)
+            putString(genderKey(uid), gender.name)
         }
         bump()
     }
@@ -75,11 +94,17 @@ class LocalSessionStore @Inject constructor(
 
     private fun accountTypeKey(uid: String) = "account_type_$uid"
 
+    private fun dateOfBirthKey(uid: String) = "date_of_birth_$uid"
+
+    private fun genderKey(uid: String) = "gender_$uid"
+
     private companion object {
         const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
         const val KEY_GUEST_MODE = "guest_mode_enabled"
         const val KEY_GUEST_ACCOUNT_TYPE = "guest_account_type"
         const val KEY_GUEST_DISPLAY_NAME = "guest_display_name"
+        const val KEY_GUEST_DATE_OF_BIRTH = "guest_date_of_birth"
+        const val KEY_GUEST_GENDER = "guest_gender"
         const val DEFAULT_GUEST_NAME = "Người dùng"
     }
 }

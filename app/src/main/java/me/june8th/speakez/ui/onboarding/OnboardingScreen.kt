@@ -37,6 +37,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -56,6 +57,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import me.june8th.speakez.R
+import me.june8th.speakez.domain.model.AccountGender
+import me.june8th.speakez.ui.common.DateOfBirthField
 
 private data class OnboardingProfile(
     val name: String,
@@ -75,6 +78,12 @@ private val layoutOptions = listOf(
     Triple("5×8", 5, 8),
 )
 
+private enum class OnboardingStep {
+    PersonalInfo,
+    Layout,
+    Voice,
+}
+
 @Composable
 fun OnboardingScreen(
     onFinished: () -> Unit,
@@ -85,18 +94,46 @@ fun OnboardingScreen(
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     var currentStep by remember { mutableIntStateOf(0) }
-    val totalSteps = 2
+    val steps = remember(viewModel.shouldShowPersonalInfoStep) {
+        if (viewModel.shouldShowPersonalInfoStep) {
+            listOf(OnboardingStep.PersonalInfo, OnboardingStep.Layout, OnboardingStep.Voice)
+        } else {
+            listOf(OnboardingStep.Layout, OnboardingStep.Voice)
+        }
+    }
+    val totalSteps = steps.size
+    val currentOnboardingStep = steps[currentStep]
 
     val stepTitles = listOf(
-        stringResource(R.string.onboarding_step_layout_title),
-        stringResource(R.string.onboarding_step_voice_title),
-    )
+        OnboardingStep.PersonalInfo to stringResource(R.string.onboarding_step_personal_title),
+        OnboardingStep.Layout to stringResource(R.string.onboarding_step_layout_title),
+        OnboardingStep.Voice to stringResource(R.string.onboarding_step_voice_title),
+    ).toMap()
     val stepDescs = listOf(
-        stringResource(R.string.onboarding_step_layout_desc),
-        stringResource(R.string.onboarding_step_voice_desc),
-    )
+        OnboardingStep.PersonalInfo to stringResource(R.string.onboarding_step_personal_desc),
+        OnboardingStep.Layout to stringResource(R.string.onboarding_step_layout_desc),
+        OnboardingStep.Voice to stringResource(R.string.onboarding_step_voice_desc),
+    ).toMap()
 
-    val canProceed = true
+    val canProceed = currentOnboardingStep != OnboardingStep.PersonalInfo || viewModel.displayName.value.isNotBlank()
+
+    val finishOnboarding = {
+        viewModel.finish(
+            savePersonalInfo = viewModel.shouldShowPersonalInfoStep,
+            onFinished = onFinished,
+        )
+    }
+
+    val contentForStep: @Composable (OnboardingStep) -> Unit = { step ->
+        when (step) {
+            OnboardingStep.PersonalInfo -> PersonalInfoStep(viewModel = viewModel)
+            OnboardingStep.Layout -> LayoutStep(viewModel = viewModel)
+            OnboardingStep.Voice -> VoiceStep(viewModel = viewModel)
+        }
+    }
+
+    val title = stepTitles.getValue(currentOnboardingStep)
+    val description = stepDescs.getValue(currentOnboardingStep)
 
     if (isLandscape) {
         Row(
@@ -124,14 +161,14 @@ fun OnboardingScreen(
                 ProgressDots(current = currentStep, total = totalSteps)
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = stepTitles[currentStep],
+                    text = title,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = stepDescs[currentStep],
+                    text = description,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
                 )
@@ -157,8 +194,8 @@ fun OnboardingScreen(
                     },
                     modifier = Modifier.weight(1f),
                     label = "step_content",
-                ) { step ->
-                    if (step == 0) LayoutStep(viewModel = viewModel) else VoiceStep(viewModel = viewModel)
+                ) { stepIndex ->
+                    contentForStep(steps[stepIndex])
                 }
 
                 NavButtons(
@@ -169,8 +206,7 @@ fun OnboardingScreen(
                     onNext = {
                         if (currentStep < totalSteps - 1) currentStep++
                         else {
-                            viewModel.finish()
-                            onFinished()
+                            finishOnboarding()
                         }
                     },
                 )
@@ -200,13 +236,13 @@ fun OnboardingScreen(
                 ProgressDots(current = currentStep, total = totalSteps)
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = stepTitles[currentStep],
+                    text = title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = stepDescs[currentStep],
+                    text = description,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
                 )
@@ -227,8 +263,8 @@ fun OnboardingScreen(
                 },
                 modifier = Modifier.weight(1f),
                 label = "step_content",
-            ) { step ->
-                if (step == 0) LayoutStep(viewModel = viewModel) else VoiceStep(viewModel = viewModel)
+            ) { stepIndex ->
+                contentForStep(steps[stepIndex])
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -241,10 +277,87 @@ fun OnboardingScreen(
                 onNext = {
                     if (currentStep < totalSteps - 1) currentStep++
                     else {
-                        viewModel.finish()
-                        onFinished()
+                        finishOnboarding()
                     }
                 },
+            )
+        }
+    }
+}
+
+@Composable
+private fun PersonalInfoStep(viewModel: OnboardingViewModel) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Column(
+            modifier = Modifier.widthIn(max = 560.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            OutlinedTextField(
+                value = viewModel.displayName.value,
+                onValueChange = { viewModel.displayName.value = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Tên hồ sơ") },
+                singleLine = true,
+            )
+            DateOfBirthField(
+                value = viewModel.dateOfBirth.value,
+                onValueChange = { viewModel.dateOfBirth.value = it },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = "Giới tính",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(AccountGender.entries) { gender ->
+                    GenderChip(
+                        gender = gender,
+                        selected = viewModel.gender.value == gender,
+                        onClick = { viewModel.gender.value = gender },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GenderChip(
+    gender: AccountGender,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.height(48.dp).widthIn(min = 96.dp),
+        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+        ),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .padding(horizontal = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = gender.label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -266,6 +379,14 @@ private fun ProgressDots(current: Int, total: Int) {
         }
     }
 }
+
+private val AccountGender.label: String
+    get() = when (this) {
+        AccountGender.UNSPECIFIED -> "Chưa chọn"
+        AccountGender.MALE -> "Nam"
+        AccountGender.FEMALE -> "Nữ"
+        AccountGender.OTHER -> "Khác"
+    }
 
 @Composable
 private fun ProfileStep(viewModel: OnboardingViewModel) {

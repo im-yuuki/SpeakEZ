@@ -42,6 +42,8 @@
     <!-- Onboarding wizard -->
     <string name="onboarding_step_profile_title">Ai đang sử dụng?</string>
     <string name="onboarding_step_profile_desc">Chọn hồ sơ để bắt đầu sử dụng SpeakEZ</string>
+    <string name="onboarding_step_personal_title">Thông tin hồ sơ</string>
+    <string name="onboarding_step_personal_desc">Nhập tên, ngày sinh và giới tính cho hồ sơ offline</string>
     <string name="onboarding_step_layout_title">Chọn bố cục</string>
     <string name="onboarding_step_layout_desc">Số biểu tượng hiển thị trên một trang</string>
     <string name="onboarding_step_voice_title">Cài đặt giọng nói</string>
