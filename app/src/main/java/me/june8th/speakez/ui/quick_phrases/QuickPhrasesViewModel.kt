@@ -92,7 +92,15 @@ class QuickPhrasesViewModel @Inject constructor(
 
     private fun handlePhraseClick(phrase: QuickPhrase) {
         textSpeaker.speak(phrase.text)
-        executeEmergencyActionUseCase(phrase.actionType, phrase.actionPayload)
+        viewModelScope.launch {
+            runCatching {
+                executeEmergencyActionUseCase(phrase.text, phrase.actionType, phrase.actionPayload)
+            }.onFailure { throwable ->
+                editorState.update { state ->
+                    state.copy(errorMessage = throwable.message ?: "Không thể gửi cảnh báo")
+                }
+            }
+        }
     }
 
     private fun startAddPhrase() {

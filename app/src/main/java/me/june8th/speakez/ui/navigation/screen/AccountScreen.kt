@@ -52,6 +52,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.june8th.speakez.domain.model.AccountGender
 import me.june8th.speakez.domain.model.AccountProfile
 import me.june8th.speakez.domain.model.AccountType
+import me.june8th.speakez.domain.model.EmergencyAlert
+import me.june8th.speakez.domain.model.GuardianConnection
+import me.june8th.speakez.domain.model.GuardianInvitation
+import me.june8th.speakez.domain.model.GuardianInvitationStatus
 import me.june8th.speakez.ui.auth.ProfileViewModel
 import me.june8th.speakez.ui.common.DateOfBirthField
 
@@ -64,6 +68,11 @@ fun AccountScreen(
     val viewModel: ProfileViewModel = hiltViewModel()
     val profile by viewModel.profileState.collectAsStateWithLifecycle()
     val actionState by viewModel.actionState.collectAsStateWithLifecycle()
+    val guardianConnections by viewModel.guardianConnections.collectAsStateWithLifecycle(initialValue = emptyList())
+    val dependentConnections by viewModel.dependentConnections.collectAsStateWithLifecycle(initialValue = emptyList())
+    val outgoingInvitations by viewModel.outgoingInvitations.collectAsStateWithLifecycle(initialValue = emptyList())
+    val incomingInvitations by viewModel.incomingInvitations.collectAsStateWithLifecycle(initialValue = emptyList())
+    val unreadEmergencyAlerts by viewModel.unreadEmergencyAlerts.collectAsStateWithLifecycle(initialValue = emptyList())
     val snackbarHostState = remember { SnackbarHostState() }
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -71,6 +80,7 @@ fun AccountScreen(
     var displayName by remember { mutableStateOf("") }
     var dateOfBirth by remember { mutableStateOf("") }
     var gender by remember { mutableStateOf(AccountGender.UNSPECIFIED) }
+    var guardianEmail by remember { mutableStateOf("") }
 
     LaunchedEffect(profile?.uid, profile?.isGuest, profile?.displayName, profile?.dateOfBirth, profile?.gender) {
         profile?.let {
@@ -153,6 +163,37 @@ fun AccountScreen(
                         },
                     )
                 }
+            }
+
+            val currentProfile = profile
+            if (currentProfile != null && !currentProfile.isGuest) {
+                GuardianManagementCard(
+                    profile = currentProfile,
+                    guardianConnections = guardianConnections,
+                    dependentConnections = dependentConnections,
+                    outgoingInvitations = outgoingInvitations,
+                    incomingInvitations = incomingInvitations,
+                    unreadEmergencyAlerts = unreadEmergencyAlerts,
+                    inviteEmail = guardianEmail,
+                    isBusy = actionState.isSaving,
+                    onInviteEmailChange = { guardianEmail = it },
+                    onInvite = {
+                        viewModel.inviteGuardian(guardianEmail)
+                        guardianEmail = ""
+                    },
+                    onAcceptInvitation = { invitationId ->
+                        viewModel.respondToInvitation(invitationId, accept = true)
+                    },
+                    onDeclineInvitation = { invitationId ->
+                        viewModel.respondToInvitation(invitationId, accept = false)
+                    },
+                    onUnlink = { userUid, guardianUid ->
+                        viewModel.unlinkGuardian(userUid, guardianUid)
+                    },
+                    onMarkAlertRead = { alertId ->
+                        viewModel.markAlertRead(alertId)
+                    },
+                )
             }
         }
     }
@@ -291,6 +332,371 @@ private fun AccountProfileContent(
     }
 }
 
+@Composable
+private fun GuardianManagementCard(
+    profile: AccountProfile,
+    guardianConnections: List<GuardianConnection>,
+    dependentConnections: List<GuardianConnection>,
+    outgoingInvitations: List<GuardianInvitation>,
+    incomingInvitations: List<GuardianInvitation>,
+    unreadEmergencyAlerts: List<EmergencyAlert>,
+    inviteEmail: String,
+    isBusy: Boolean,
+    onInviteEmailChange: (String) -> Unit,
+    onInvite: () -> Unit,
+    onAcceptInvitation: (String) -> Unit,
+    onDeclineInvitation: (String) -> Unit,
+    onUnlink: (userUid: String, guardianUid: String) -> Unit,
+    onMarkAlertRead: (String) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text(
+                text = if (profile.accountType == AccountType.USER) "Người giám hộ" else "Người dùng đang theo dõi",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+
+            if (profile.accountType == AccountType.USER) {
+                UserGuardianSection(
+                    profile = profile,
+                    guardianConnections = guardianConnections,
+                    outgoingInvitations = outgoingInvitations,
+                    inviteEmail = inviteEmail,
+                    isBusy = isBusy,
+                    onInviteEmailChange = onInviteEmailChange,
+                    onInvite = onInvite,
+                    onUnlink = onUnlink,
+                )
+            } else {
+                GuardianDependentSection(
+                    profile = profile,
+                    dependentConnections = dependentConnections,
+                    incomingInvitations = incomingInvitations,
+                    unreadEmergencyAlerts = unreadEmergencyAlerts,
+                    isBusy = isBusy,
+                    onAcceptInvitation = onAcceptInvitation,
+                    onDeclineInvitation = onDeclineInvitation,
+                    onUnlink = onUnlink,
+                    onMarkAlertRead = onMarkAlertRead,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun UserGuardianSection(
+    profile: AccountProfile,
+    guardianConnections: List<GuardianConnection>,
+    outgoingInvitations: List<GuardianInvitation>,
+    inviteEmail: String,
+    isBusy: Boolean,
+    onInviteEmailChange: (String) -> Unit,
+    onInvite: () -> Unit,
+    onUnlink: (userUid: String, guardianUid: String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = "Đã liên kết ${guardianConnections.size}/3 người giám hộ. Cảnh báo khẩn cấp sẽ được gửi cho các tài khoản đã chấp nhận lời mời.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedTextField(
+            value = inviteEmail,
+            onValueChange = onInviteEmailChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Email người giám hộ") },
+            singleLine = true,
+            enabled = guardianConnections.size < 3,
+        )
+        Button(
+            onClick = onInvite,
+            enabled = !isBusy && inviteEmail.isNotBlank() && guardianConnections.size < 3,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (isBusy) "Đang xử lý..." else "Gửi lời mời")
+        }
+
+        ConnectionList(
+            title = "Đang liên kết",
+            emptyText = "Chưa có người giám hộ nào chấp nhận.",
+            connections = guardianConnections,
+            actionText = "Hủy liên kết",
+            isBusy = isBusy,
+            onAction = { guardian ->
+                val userUid = profile.uid ?: return@ConnectionList
+                onUnlink(userUid, guardian.uid)
+            },
+        )
+
+        InvitationList(
+            title = "Lời mời đã gửi",
+            invitations = outgoingInvitations.filter { it.status == GuardianInvitationStatus.PENDING },
+            emptyText = "Không có lời mời đang chờ.",
+        )
+    }
+}
+
+@Composable
+private fun GuardianDependentSection(
+    profile: AccountProfile,
+    dependentConnections: List<GuardianConnection>,
+    incomingInvitations: List<GuardianInvitation>,
+    unreadEmergencyAlerts: List<EmergencyAlert>,
+    isBusy: Boolean,
+    onAcceptInvitation: (String) -> Unit,
+    onDeclineInvitation: (String) -> Unit,
+    onUnlink: (userUid: String, guardianUid: String) -> Unit,
+    onMarkAlertRead: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        EmergencyAlertList(
+            alerts = unreadEmergencyAlerts,
+            isBusy = isBusy,
+            onMarkAlertRead = onMarkAlertRead,
+        )
+        IncomingInvitationList(
+            invitations = incomingInvitations,
+            isBusy = isBusy,
+            onAcceptInvitation = onAcceptInvitation,
+            onDeclineInvitation = onDeclineInvitation,
+        )
+        ConnectionList(
+            title = "Đang theo dõi",
+            emptyText = "Chưa theo dõi người dùng nào.",
+            connections = dependentConnections,
+            actionText = "Dừng theo dõi",
+            isBusy = isBusy,
+            onAction = { user ->
+                val guardianUid = profile.uid ?: return@ConnectionList
+                onUnlink(user.uid, guardianUid)
+            },
+        )
+    }
+}
+
+@Composable
+private fun EmergencyAlertList(
+    alerts: List<EmergencyAlert>,
+    isBusy: Boolean,
+    onMarkAlertRead: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "Cảnh báo chưa đọc",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        if (alerts.isEmpty()) {
+            Text(
+                text = "Chưa có cảnh báo khẩn cấp mới.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            alerts.forEach { alert ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "${alert.userDisplayName}: ${alert.phraseText}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                        alert.actionPayload?.takeIf { it.isNotBlank() }?.let { payload ->
+                            Text(
+                                text = payload,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                            )
+                        }
+                        TextButton(
+                            onClick = { onMarkAlertRead(alert.id) },
+                            enabled = !isBusy,
+                        ) {
+                            Text("Đã xử lý")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConnectionList(
+    title: String,
+    emptyText: String,
+    connections: List<GuardianConnection>,
+    actionText: String,
+    isBusy: Boolean,
+    onAction: (GuardianConnection) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        if (connections.isEmpty()) {
+            Text(
+                text = emptyText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            connections.forEach { connection ->
+                GuardianConnectionRow(
+                    connection = connection,
+                    actionText = actionText,
+                    enabled = !isBusy,
+                    onAction = { onAction(connection) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GuardianConnectionRow(
+    connection: GuardianConnection,
+    actionText: String,
+    enabled: Boolean,
+    onAction: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = connection.displayName, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = connection.email ?: connection.uid,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            TextButton(onClick = onAction, enabled = enabled) {
+                Text(actionText)
+            }
+        }
+    }
+}
+
+@Composable
+private fun InvitationList(
+    title: String,
+    invitations: List<GuardianInvitation>,
+    emptyText: String,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        if (invitations.isEmpty()) {
+            Text(
+                text = emptyText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            invitations.forEach { invitation ->
+                Text(
+                    text = "${invitation.guardianDisplayName.ifBlank { invitation.guardianEmail ?: "Người giám hộ" }} · ${invitation.status.label}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun IncomingInvitationList(
+    invitations: List<GuardianInvitation>,
+    isBusy: Boolean,
+    onAcceptInvitation: (String) -> Unit,
+    onDeclineInvitation: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "Lời mời giám hộ",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        if (invitations.isEmpty()) {
+            Text(
+                text = "Không có lời mời đang chờ.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            invitations.forEach { invitation ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = invitation.userDisplayName.ifBlank { "Người dùng" },
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = "Muốn liên kết bạn làm người giám hộ.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = { onAcceptInvitation(invitation.id) },
+                                enabled = !isBusy,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text("Chấp nhận")
+                            }
+                            TextButton(
+                                onClick = { onDeclineInvitation(invitation.id) },
+                                enabled = !isBusy,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text("Từ chối")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GenderDropdown(
@@ -361,6 +767,13 @@ private val AccountType.label: String
     get() = when (this) {
         AccountType.USER -> "Người dùng"
         AccountType.GUARDIAN -> "Người giám hộ"
+    }
+
+private val GuardianInvitationStatus.label: String
+    get() = when (this) {
+        GuardianInvitationStatus.PENDING -> "Đang chờ"
+        GuardianInvitationStatus.ACCEPTED -> "Đã chấp nhận"
+        GuardianInvitationStatus.DECLINED -> "Đã từ chối"
     }
 
 private val AccountGender.label: String

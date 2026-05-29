@@ -93,8 +93,9 @@ class FirebaseAuthRepository @Inject constructor(
     )
 
     override suspend fun signInWithEmail(email: String, password: String) {
-        firebaseAuth.signInWithEmailAndPassword(email, password).await().user
+        val user = firebaseAuth.signInWithEmailAndPassword(email, password).await().user
             ?: error("Không thể đọc thông tin tài khoản sau khi đăng nhập")
+        saveAccountLookup(user.uid, user.email, user.displayName)
         localSessionStore.clearGuestMode()
     }
 
@@ -112,6 +113,7 @@ class FirebaseAuthRepository @Inject constructor(
         localSessionStore.saveFirebaseProfile(user.uid, resolvedName, accountType)
         saveRemoteProfile(
             uid = user.uid,
+            email = user.email,
             displayName = resolvedName,
             dateOfBirth = "",
             gender = AccountGender.UNSPECIFIED,
@@ -125,11 +127,13 @@ class FirebaseAuthRepository @Inject constructor(
         val user = result.user
             ?: error("Không thể đăng nhập bằng Google")
         localSessionStore.clearGuestMode()
+        saveAccountLookup(user.uid, user.email, user.displayName)
         if (accountType != null && result.additionalUserInfo?.isNewUser == true && !localSessionStore.hasAccountType(user.uid)) {
             val displayName = user.displayName?.takeIf { it.isNotBlank() } ?: user.email ?: "Tài khoản Google"
             localSessionStore.saveFirebaseProfile(user.uid, displayName, accountType)
             saveRemoteProfile(
                 uid = user.uid,
+                email = user.email,
                 displayName = displayName,
                 dateOfBirth = "",
                 gender = AccountGender.UNSPECIFIED,
@@ -151,6 +155,7 @@ class FirebaseAuthRepository @Inject constructor(
         localSessionStore.saveFirebaseProfile(user.uid, resolvedName, profile.accountType, dateOfBirth, gender)
         saveRemoteProfile(
             uid = user.uid,
+            email = user.email,
             displayName = resolvedName,
             dateOfBirth = dateOfBirth,
             gender = gender,
@@ -174,6 +179,7 @@ class FirebaseAuthRepository @Inject constructor(
 
     private suspend fun saveRemoteProfile(
         uid: String,
+        email: String?,
         displayName: String,
         dateOfBirth: String,
         gender: AccountGender,
@@ -182,10 +188,27 @@ class FirebaseAuthRepository @Inject constructor(
         accountDocument(uid).set(
             mapOf(
                 FIELD_DISPLAY_NAME to displayName,
+                FIELD_EMAIL to email,
+                FIELD_NORMALIZED_EMAIL to email.normalizedEmail(),
                 FIELD_DATE_OF_BIRTH to dateOfBirth,
                 FIELD_GENDER to gender.name,
                 FIELD_ACCOUNT_TYPE to accountType.name,
             ),
+            com.google.firebase.firestore.SetOptions.merge(),
+        ).await()
+    }
+
+    private suspend fun saveAccountLookup(uid: String, email: String?, displayName: String?) {
+        val fields = buildMap {
+            email?.let {
+                put(FIELD_EMAIL, it)
+                put(FIELD_NORMALIZED_EMAIL, it.normalizedEmail())
+            }
+            displayName?.takeIf { it.isNotBlank() }?.let { put(FIELD_DISPLAY_NAME, it) }
+        }
+        if (fields.isEmpty()) return
+        accountDocument(uid).set(
+            fields,
             com.google.firebase.firestore.SetOptions.merge(),
         ).await()
     }
@@ -209,6 +232,8 @@ class FirebaseAuthRepository @Inject constructor(
     private companion object {
         const val COLLECTION_ACCOUNT_PROFILES = "account_profiles"
         const val FIELD_DISPLAY_NAME = "displayName"
+        const val FIELD_EMAIL = "email"
+        const val FIELD_NORMALIZED_EMAIL = "normalizedEmail"
         const val FIELD_DATE_OF_BIRTH = "dateOfBirth"
         const val FIELD_GENDER = "gender"
         const val FIELD_ACCOUNT_TYPE = "accountType"
@@ -240,3 +265,5 @@ private fun com.google.firebase.auth.FirebaseUser.toAuthUser(): AuthUser {
         photoUrl = photoUrl?.toString(),
     )
 }
+
+private fun String?.normalizedEmail(): String? = this?.trim()?.lowercase()
