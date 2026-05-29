@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "211510093226-dd4tmi7ps1sn4r8gf90tiuaibqtaeqjb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "me.june8th.speakez",
+            "certificate_hash": "a4ca82a70ffa92fff421c55a6f85befae3b2d1fe"
+          }
+        },
+        {
           "client_id": "211510093226-eq64r8rnq8ihavmnk805d0to05ktgg0u.apps.googleusercontent.com",
           "client_type": 3
         }
