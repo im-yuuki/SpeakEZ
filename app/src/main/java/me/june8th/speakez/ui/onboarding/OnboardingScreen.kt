@@ -85,20 +85,18 @@ fun OnboardingScreen(
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     var currentStep by remember { mutableIntStateOf(0) }
-    val totalSteps = 3
+    val totalSteps = 2
 
     val stepTitles = listOf(
-        stringResource(R.string.onboarding_step_profile_title),
         stringResource(R.string.onboarding_step_layout_title),
         stringResource(R.string.onboarding_step_voice_title),
     )
     val stepDescs = listOf(
-        stringResource(R.string.onboarding_step_profile_desc),
         stringResource(R.string.onboarding_step_layout_desc),
         stringResource(R.string.onboarding_step_voice_desc),
     )
 
-    val canProceed = if (currentStep == 0) viewModel.selectedProfile.value != null else true
+    val canProceed = true
 
     if (isLandscape) {
         Row(
@@ -160,11 +158,7 @@ fun OnboardingScreen(
                     modifier = Modifier.weight(1f),
                     label = "step_content",
                 ) { step ->
-                    when (step) {
-                        0 -> ProfileStep(viewModel = viewModel)
-                        1 -> LayoutStep(viewModel = viewModel)
-                        else -> VoiceStep(viewModel = viewModel)
-                    }
+                    if (step == 0) LayoutStep(viewModel = viewModel) else VoiceStep(viewModel = viewModel)
                 }
 
                 NavButtons(
@@ -234,11 +228,7 @@ fun OnboardingScreen(
                 modifier = Modifier.weight(1f),
                 label = "step_content",
             ) { step ->
-                when (step) {
-                    0 -> ProfileStep(viewModel = viewModel)
-                    1 -> LayoutStep(viewModel = viewModel)
-                    else -> VoiceStep(viewModel = viewModel)
-                }
+                if (step == 0) LayoutStep(viewModel = viewModel) else VoiceStep(viewModel = viewModel)
             }
 
             Spacer(modifier = Modifier.height(16.dp))

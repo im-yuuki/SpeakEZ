@@ -45,6 +45,7 @@ android {
 
 dependencies {
     implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -66,6 +67,8 @@ dependencies {
     implementation(libs.timber)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.play.services.auth)
     ksp(libs.hilt.compiler)
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)

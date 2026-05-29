@@ -35,7 +35,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
@@ -250,7 +250,7 @@ fun HomeScreen(
                         shape = MaterialTheme.shapes.medium
                     ) {
                         TopBarActionContent(
-                            icon = Icons.Filled.FlashOn,
+                            icon = Icons.Filled.Bolt,
                             text = "Câu nhanh",
                             contentColor = buttonTextColor,
                         )
@@ -429,7 +429,7 @@ fun HomeScreen(
                         shape = MaterialTheme.shapes.medium
                     ) {
                         TopBarActionContent(
-                            icon = Icons.Filled.FlashOn,
+                            icon = Icons.Filled.Bolt,
                             text = "Câu nhanh",
                             contentColor = buttonTextColor,
                         )

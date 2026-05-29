@@ -44,12 +44,15 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import me.june8th.speakez.R
+import me.june8th.speakez.ui.navigation.screen.AccountScreen
 import me.june8th.speakez.ui.navigation.screen.HomeScreen
 import me.june8th.speakez.ui.navigation.screen.QuickPhrasesScreen
 import me.june8th.speakez.ui.navigation.screen.SettingsScreen
 
 @Composable
-fun MainShell() {
+fun MainShell(
+    onLoginRequested: () -> Unit,
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -66,6 +69,7 @@ fun MainShell() {
             MainRoute.QuickPhrases -> R.string.quick_phrases_title
             MainRoute.EditRecommendation -> R.string.edit_recommendation_title
             MainRoute.Settings -> R.string.settings_title
+            MainRoute.Account -> R.string.nav_account
             else -> R.string.app_name
         }
     }
@@ -144,6 +148,7 @@ fun MainShell() {
                 MainNavHost(
                     navController = navController,
                     contentPadding = innerPadding,
+                    onLoginRequested = onLoginRequested,
                     onMenuClick = {
                         scope.launch {
                             drawerState.open()
@@ -214,6 +219,7 @@ fun MainShell() {
                 MainNavHost(
                     navController = navController,
                     contentPadding = innerPadding,
+                    onLoginRequested = onLoginRequested,
                     onMenuClick = {
                         scope.launch {
                             drawerState.open()
@@ -229,6 +235,7 @@ fun MainShell() {
 private fun MainNavHost(
     navController: androidx.navigation.NavHostController,
     contentPadding: PaddingValues,
+    onLoginRequested: () -> Unit,
     onMenuClick: () -> Unit,
 ) {
     NavHost(
@@ -263,7 +270,15 @@ private fun MainNavHost(
             SettingsScreen(
                 onBackClick = {
                     navController.popBackStack()
-                }
+                },
+            )
+        }
+        composable(MainRoute.Account) {
+            AccountScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onLoginRequested = onLoginRequested,
             )
         }
         composable(MainRoute.EditRecommendation) {
