@@ -79,6 +79,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -100,7 +101,8 @@ private val defaultEmojis = listOf("🍚", "💊", "⚽", "😊", "🖐️")
 @Composable
 fun SettingsScreen(
     onBackClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isGuardian: Boolean = false,
 ) {
     val viewModel: SettingsViewModel = hiltViewModel()
     val quickPhrasesViewModel: QuickPhrasesViewModel = hiltViewModel()
@@ -242,75 +244,92 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                item {
-                    SettingCard(
-                        title = "Cài đặt Phát âm",
-                        subtitle = "Điều chỉnh tốc độ và cao độ giọng đọc",
-                        icon = Icons.Filled.Speaker,
-                    ) {
-                        Text(
-                            text = "Tốc độ đọc: ${"%.2f".format(uiState.speechRate)}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
+                if (isGuardian) {
+                    item {
+                        SettingCard(
+                            title = "Chế độ người giám hộ",
+                            subtitle = "Tập trung vào lời mời, người dùng đang theo dõi và cảnh báo khẩn cấp",
+                            icon = Icons.Filled.Info,
                         ) {
                             Text(
-                                text = "Chậm",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Slider(
-                                value = uiState.speechRate,
-                                onValueChange = viewModel::setSpeechRate,
-                                valueRange = 0.5f..2.0f,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                text = "Nhanh",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "Các menu bảng giao tiếp, câu nhanh và quản lý từ vựng đã được ẩn để giao diện theo dõi gọn hơn.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Cao độ: ${"%.2f".format(uiState.pitch)}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
+                    }
+                }
+                if (!isGuardian) {
+                    item {
+                        SettingCard(
+                            title = "Cài đặt Phát âm",
+                            subtitle = "Điều chỉnh tốc độ và cao độ giọng đọc",
+                            icon = Icons.Filled.Speaker,
                         ) {
                             Text(
-                                text = "Trầm",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "Tốc độ đọc: ${"%.2f".format(uiState.speechRate)}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
                             )
-                            Slider(
-                                value = uiState.pitch,
-                                onValueChange = viewModel::setPitch,
-                                valueRange = 0.5f..2.0f,
-                                modifier = Modifier.weight(1f)
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "Chậm",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Slider(
+                                    value = uiState.speechRate,
+                                    onValueChange = viewModel::setSpeechRate,
+                                    valueRange = 0.5f..2.0f,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = "Nhanh",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Bổng",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "Cao độ: ${"%.2f".format(uiState.pitch)}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
                             )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "Trầm",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Slider(
+                                    value = uiState.pitch,
+                                    onValueChange = viewModel::setPitch,
+                                    valueRange = 0.5f..2.0f,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = "Bổng",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            VoicePicker(
+                                selectedVoiceId = uiState.selectedVoiceId,
+                                voiceOptions = uiState.voiceOptions,
+                                onVoiceSelected = viewModel::setSelectedVoiceId,
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(onClick = { viewModel.testAudio() }) { Text("Nghe thử") }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        VoicePicker(
-                            selectedVoiceId = uiState.selectedVoiceId,
-                            voiceOptions = uiState.voiceOptions,
-                            onVoiceSelected = viewModel::setSelectedVoiceId,
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(onClick = { viewModel.testAudio() }) { Text("Nghe thử") }
                     }
                 }
                 item {
@@ -347,132 +366,134 @@ fun SettingsScreen(
                         }
                     }
                 }
-                item {
-                    SettingCard(
-                        title = androidx.compose.ui.res.stringResource(R.string.settings_tts_title),
-                        subtitle = androidx.compose.ui.res.stringResource(R.string.settings_tts_subtitle),
-                        icon = Icons.AutoMirrored.Filled.VolumeUp,
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
+                if (!isGuardian) {
+                    item {
+                        SettingCard(
+                            title = androidx.compose.ui.res.stringResource(R.string.settings_tts_title),
+                            subtitle = androidx.compose.ui.res.stringResource(R.string.settings_tts_subtitle),
+                            icon = Icons.AutoMirrored.Filled.VolumeUp,
                         ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.VolumeDown,
-                                contentDescription = "Âm lượng nhỏ",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Slider(
-                                value = uiState.volume,
-                                onValueChange = { viewModel.setVolume(it) },
-                                modifier = Modifier.weight(1f)
-                            )
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                                contentDescription = "Âm lượng lớn",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.VolumeDown,
+                                    contentDescription = "Âm lượng nhỏ",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Slider(
+                                    value = uiState.volume,
+                                    onValueChange = { viewModel.setVolume(it) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                                    contentDescription = "Âm lượng lớn",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
-                }
-                item {
-                    SettingCard(
-                        title = androidx.compose.ui.res.stringResource(R.string.settings_icon_management_title),
-                        subtitle = androidx.compose.ui.res.stringResource(R.string.settings_icon_management_subtitle),
-                        icon = Icons.Filled.Palette,
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
+                    item {
+                        SettingCard(
+                            title = androidx.compose.ui.res.stringResource(R.string.settings_icon_management_title),
+                            subtitle = androidx.compose.ui.res.stringResource(R.string.settings_icon_management_subtitle),
+                            icon = Icons.Filled.Palette,
                         ) {
-                            Text(text = androidx.compose.ui.res.stringResource(R.string.settings_show_labels))
-                            Switch(checked = uiState.showLabels, onCheckedChange = { viewModel.setShowLabels(it) })
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(text = androidx.compose.ui.res.stringResource(R.string.settings_show_labels))
+                                Switch(checked = uiState.showLabels, onCheckedChange = { viewModel.setShowLabels(it) })
+                            }
                         }
                     }
-                }
-                item {
-                    SettingCard(
-                        title = "Khung hiển thị",
-                        subtitle = "Số lượng biểu tượng hiển thị trên một trang (chế độ ngang)",
-                        icon = Icons.Filled.Palette,
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxWidth()
+                    item {
+                        SettingCard(
+                            title = "Khung hiển thị",
+                            subtitle = "Số lượng biểu tượng hiển thị trên một trang (chế độ ngang)",
+                            icon = Icons.Filled.Palette,
                         ) {
-                            listOf("3x5", "4x6", "5x8").forEach { option ->
-                                val isSelected = gridChoice == option
-                                Surface(
-                                    onClick = { gridChoice = option },
-                                    modifier = Modifier.weight(1f).height(48.dp),
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                                    shape = MaterialTheme.shapes.medium,
-                                    border = BorderStroke(
-                                        width = 1.dp,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-                                    )
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier.fillMaxSize()
-                                    ) {
-                                        Text(
-                                            text = option,
-                                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                listOf("3x5", "4x6", "5x8").forEach { option ->
+                                    val isSelected = gridChoice == option
+                                    Surface(
+                                        onClick = { gridChoice = option },
+                                        modifier = Modifier.weight(1f).height(48.dp),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                        shape = MaterialTheme.shapes.medium,
+                                        border = BorderStroke(
+                                            width = 1.dp,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
                                         )
+                                    ) {
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier.fillMaxSize()
+                                        ) {
+                                            Text(
+                                                text = option,
+                                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
-                item {
-                    SettingCard(
-                        title = androidx.compose.ui.res.stringResource(R.string.settings_mulberry_title),
-                        subtitle = androidx.compose.ui.res.stringResource(R.string.settings_mulberry_subtitle),
-                        icon = Icons.Filled.Info,
-                    ) {
-                        Text(text = androidx.compose.ui.res.stringResource(R.string.settings_mulberry_attribution))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = androidx.compose.ui.res.stringResource(R.string.settings_mulberry_license_url),
-                            color = MaterialTheme.colorScheme.primary,
-                        )
+                    item {
+                        SettingCard(
+                            title = androidx.compose.ui.res.stringResource(R.string.settings_mulberry_title),
+                            subtitle = androidx.compose.ui.res.stringResource(R.string.settings_mulberry_subtitle),
+                            icon = Icons.Filled.Info,
+                        ) {
+                            Text(text = androidx.compose.ui.res.stringResource(R.string.settings_mulberry_attribution))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = androidx.compose.ui.res.stringResource(R.string.settings_mulberry_license_url),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                     }
-                }
-                item {
-                    SettingCard(
-                        title = "Quản lý Câu nhanh",
-                        subtitle = "Thêm, sửa hoặc xóa câu nhanh khẩn cấp",
-                        icon = Icons.Filled.Add,
-                    ) {
-                        QuickPhraseManagementSection(
-                            uiState = quickPhraseUiState,
-                            onIntent = quickPhrasesViewModel::onIntent,
-                        )
+                    item {
+                        SettingCard(
+                            title = "Quản lý Câu nhanh",
+                            subtitle = "Thêm, sửa hoặc xóa câu nhanh khẩn cấp",
+                            icon = Icons.Filled.Add,
+                        ) {
+                            QuickPhraseManagementSection(
+                                uiState = quickPhraseUiState,
+                                onIntent = quickPhrasesViewModel::onIntent,
+                            )
+                        }
                     }
-                }
-                item {
-                    SettingCard(
-                        title = "Quản lý Từ vựng",
-                        subtitle = "Thêm/ẩn hiện/đổi ảnh từ vựng",
-                        icon = Icons.Filled.Add
-                    ) {
-                        Button(onClick = { showAddDialog = true }) { Text("Thêm từ mới") }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            vocabulary.forEach { item ->
-                                VocabularyRow(
-                                    item = item,
-                                    onToggleVisibility = { viewModel.toggleVocabularyVisibility(item.id) },
-                                    onPickImage = {
-                                        selectedImageItemId = item.id
-                                        imagePicker.launch("image/*")
-                                    },
-                                )
+                    item {
+                        SettingCard(
+                            title = "Quản lý Từ vựng",
+                            subtitle = "Thêm/ẩn hiện/đổi ảnh từ vựng",
+                            icon = Icons.Filled.Add
+                        ) {
+                            Button(onClick = { showAddDialog = true }) { Text("Thêm từ mới") }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                vocabulary.forEach { item ->
+                                    VocabularyRow(
+                                        item = item,
+                                        onToggleVisibility = { viewModel.toggleVocabularyVisibility(item.id) },
+                                        onPickImage = {
+                                            selectedImageItemId = item.id
+                                            imagePicker.launch("image/*")
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
@@ -676,7 +697,7 @@ private fun EditQuickPhraseDialog(
                     }
                 }
 
-                if (uiState.draftActionType != ActionType.NONE) {
+                if (uiState.draftActionType == ActionType.CALL) {
                     OutlinedTextField(
                         value = uiState.draftActionPayload,
                         onValueChange = { payload ->
@@ -686,14 +707,23 @@ private fun EditQuickPhraseDialog(
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 72.dp),
                         label = {
-                            Text(if (uiState.draftActionType == ActionType.CALL) "Số điện thoại" else "Người nhận")
+                            Text("Số điện thoại")
                         },
                         singleLine = true,
                         maxLines = 1,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Phone,
+                            imeAction = ImeAction.Done,
+                        ),
                         keyboardActions = KeyboardActions(
                             onDone = { hideKeyboard() },
                         ),
+                    )
+                } else if (uiState.draftActionType == ActionType.PUSH_NOTI) {
+                    Text(
+                        text = "Thông báo sẽ được gửi đến tất cả người giám hộ đã liên kết.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
@@ -723,6 +753,9 @@ private fun EditQuickPhraseDialog(
 }
 
 private fun QuickPhrase.actionDescription(): String {
+    if (actionType == ActionType.PUSH_NOTI) {
+        return "Thông báo · Tất cả người giám hộ đã liên kết"
+    }
     val payload = actionPayload?.takeIf { it.isNotBlank() }
     return if (payload == null) {
         actionType.label()

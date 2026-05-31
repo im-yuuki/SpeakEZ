@@ -20,6 +20,7 @@ import me.june8th.speakez.domain.usecase.quickphrase.ExecuteEmergencyActionUseCa
 import me.june8th.speakez.domain.usecase.quickphrase.GetQuickPhrasesUseCase
 import me.june8th.speakez.domain.usecase.quickphrase.UpdateQuickPhraseUseCase
 import me.june8th.speakez.tts.TextSpeaker
+import me.june8th.speakez.ui.common.toUserMessage
 import java.util.UUID
 import javax.inject.Inject
 
@@ -33,6 +34,7 @@ class QuickPhrasesViewModel @Inject constructor(
     private val textSpeaker: TextSpeaker,
 ) : ViewModel() {
     private val editorState = MutableStateFlow(QuickPhraseEditorState())
+    private val activeCallPhraseId = MutableStateFlow<String?>(null)
 
     private val phraseListState = getQuickPhrasesUseCase()
         .map<List<QuickPhrase>, QuickPhraseListState> { phrases ->
@@ -45,7 +47,7 @@ class QuickPhrasesViewModel @Inject constructor(
             emit(
                 QuickPhraseListState(
                     isLoading = false,
-                    errorMessage = throwable.message ?: "Không thể tải câu nhanh",
+                    errorMessage = throwable.toUserMessage("Không thể tải câu nhanh"),
                 ),
             )
         }
@@ -58,7 +60,8 @@ class QuickPhrasesViewModel @Inject constructor(
     val uiState: StateFlow<QuickPhraseUiState> = combine(
         phraseListState,
         editorState,
-    ) { phraseState, editorState ->
+        activeCallPhraseId,
+    ) { phraseState, editorState, activeCallPhraseId ->
         QuickPhraseUiState(
             phrases = phraseState.phrases,
             isLoading = phraseState.isLoading,
@@ -69,6 +72,7 @@ class QuickPhrasesViewModel @Inject constructor(
             draftActionType = editorState.draftActionType,
             draftActionPayload = editorState.draftActionPayload,
             isDraftValid = editorState.isDraftValid,
+            activeCallPhraseId = activeCallPhraseId,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -91,8 +95,25 @@ class QuickPhrasesViewModel @Inject constructor(
     }
 
     private fun handlePhraseClick(phrase: QuickPhrase) {
+        if (phrase.actionType == ActionType.CALL && activeCallPhraseId.value != null) return
+
         textSpeaker.speak(phrase.text)
-        executeEmergencyActionUseCase(phrase.actionType, phrase.actionPayload)
+        if (phrase.actionType == ActionType.CALL) {
+            activeCallPhraseId.value = phrase.id
+        }
+        viewModelScope.launch {
+            runCatching {
+                executeEmergencyActionUseCase(phrase.text, phrase.actionType, phrase.actionPayload)
+            }.onFailure { throwable ->
+                editorState.update { state ->
+                    state.copy(errorMessage = throwable.toUserMessage(phrase.actionFailureMessage()))
+                }
+            }.also {
+                if (phrase.actionType == ActionType.CALL) {
+                    activeCallPhraseId.value = null
+                }
+            }
+        }
     }
 
     private fun startAddPhrase() {
@@ -121,7 +142,7 @@ class QuickPhrasesViewModel @Inject constructor(
         editorState.update { state ->
             state.copy(
                 draftActionType = actionType,
-                draftActionPayload = if (actionType == ActionType.NONE) "" else state.draftActionPayload,
+                draftActionPayload = if (actionType == ActionType.CALL) state.draftActionPayload else "",
                 errorMessage = null,
             ).validated()
         }
@@ -156,7 +177,7 @@ class QuickPhrasesViewModel @Inject constructor(
                 editorState.value = QuickPhraseEditorState()
             }.onFailure { throwable ->
                 editorState.update { current ->
-                    current.copy(errorMessage = throwable.message ?: "Không thể lưu câu nhanh")
+                    current.copy(errorMessage = throwable.toUserMessage("Không thể lưu câu nhanh"))
                 }
             }
         }
@@ -168,7 +189,7 @@ class QuickPhrasesViewModel @Inject constructor(
                 deleteQuickPhraseUseCase(phraseId)
             }.onFailure { throwable ->
                 editorState.update { state ->
-                    state.copy(errorMessage = throwable.message ?: "Không thể xóa câu nhanh")
+                    state.copy(errorMessage = throwable.toUserMessage("Không thể xóa câu nhanh"))
                 }
             }
         }
@@ -200,10 +221,18 @@ private data class QuickPhraseEditorState(
     }
 
     fun normalizedPayload(): String? {
-        return if (draftActionType == ActionType.NONE) null else draftActionPayload.trim()
+        return if (draftActionType == ActionType.CALL) draftActionPayload.trim() else null
     }
 
     private fun hasRequiredPayload(): Boolean {
-        return draftActionType == ActionType.NONE || draftActionPayload.trim().isNotEmpty()
+        return draftActionType != ActionType.CALL || draftActionPayload.trim().isNotEmpty()
+    }
+}
+
+private fun QuickPhrase.actionFailureMessage(): String {
+    return when (actionType) {
+        ActionType.NONE -> "Không thể thực hiện hành động"
+        ActionType.CALL -> "Không thể mở trình quay số"
+        ActionType.PUSH_NOTI -> "Không thể gửi cảnh báo"
     }
 }

@@ -18,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import me.june8th.speakez.data.auth.FirebaseAuthRepository
+import me.june8th.speakez.data.guardian.FirebaseGuardianRepository
 import me.june8th.speakez.data.local.SpeakEZDatabase
 import me.june8th.speakez.data.quickphrase.QuickPhraseDao
 import me.june8th.speakez.data.quickphrase.QuickPhraseRepositoryImpl
@@ -25,6 +26,7 @@ import me.june8th.speakez.data.settings.AppSettingsRepository
 import me.june8th.speakez.data.settings.DataStoreAppSettingsRepository
 import me.june8th.speakez.domain.repository.QuickPhraseRepository
 import me.june8th.speakez.domain.repository.AuthRepository
+import me.june8th.speakez.domain.repository.GuardianRepository
 import me.june8th.speakez.tts.TextSpeaker
 import me.june8th.speakez.tts.TtsManager
 import javax.inject.Qualifier
@@ -62,6 +64,12 @@ abstract class AppBindingsModule {
     abstract fun bindAuthRepository(
         repository: FirebaseAuthRepository,
     ): AuthRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindGuardianRepository(
+        repository: FirebaseGuardianRepository,
+    ): GuardianRepository
 
     @Binds
     @Singleton

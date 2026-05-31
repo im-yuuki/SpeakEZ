@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import me.june8th.speakez.R
+import me.june8th.speakez.domain.model.AccountType
 
 object AppRoute {
     const val Login = "login"
@@ -18,6 +19,7 @@ object AppRoute {
 
 object MainRoute {
     const val Home = "home"
+    const val GuardianHome = "guardian_home"
     const val QuickPhrases = "quick_phrases"
     const val EditRecommendation = "edit_recommendation"
     const val Settings = "settings"
@@ -38,3 +40,14 @@ val mainNavItems = listOf(
     MainNavItem(MainRoute.Account, R.string.nav_account, Icons.Filled.AccountCircle),
 )
 
+fun mainNavItemsFor(accountType: AccountType?): List<MainNavItem> {
+    return if (accountType == AccountType.GUARDIAN) {
+        listOf(
+            MainNavItem(MainRoute.GuardianHome, R.string.nav_home, Icons.Filled.Home),
+            MainNavItem(MainRoute.Account, R.string.nav_account, Icons.Filled.AccountCircle),
+            MainNavItem(MainRoute.Settings, R.string.nav_settings, Icons.Filled.Settings),
+        )
+    } else {
+        mainNavItems
+    }
+}

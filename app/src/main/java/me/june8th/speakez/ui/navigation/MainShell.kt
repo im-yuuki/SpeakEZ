@@ -28,6 +28,7 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -42,9 +43,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import me.june8th.speakez.R
+import me.june8th.speakez.domain.model.AccountType
+import me.june8th.speakez.ui.auth.SessionViewModel
 import me.june8th.speakez.ui.navigation.screen.AccountScreen
+import me.june8th.speakez.ui.navigation.screen.GuardianHomeScreen
 import me.june8th.speakez.ui.navigation.screen.HomeScreen
 import me.june8th.speakez.ui.navigation.screen.QuickPhrasesScreen
 import me.june8th.speakez.ui.navigation.screen.SettingsScreen
@@ -52,10 +57,15 @@ import me.june8th.speakez.ui.navigation.screen.SettingsScreen
 @Composable
 fun MainShell(
     onLoginRequested: () -> Unit,
+    sessionViewModel: SessionViewModel = hiltViewModel(),
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val profile by sessionViewModel.profileState.collectAsStateWithLifecycle()
+    val isGuardian = profile?.accountType == AccountType.GUARDIAN
+    val navItems = remember(profile?.accountType) { mainNavItemsFor(profile?.accountType) }
+    val startDestination = if (isGuardian) MainRoute.GuardianHome else MainRoute.Home
 
     val context = LocalContext.current
     val homeViewModel: me.june8th.speakez.ui.home.HomeViewModel = hiltViewModel(
@@ -63,13 +73,27 @@ fun MainShell(
     )
     val isEditMode by homeViewModel.isEditMode.collectAsState()
 
-    val currentTitle = remember(currentRoute) {
+    LaunchedEffect(isGuardian, currentRoute) {
+        if (currentRoute == null) return@LaunchedEffect
+        if (navItems.none { it.route == currentRoute }) {
+            homeViewModel.setEditMode(false)
+            navController.navigate(startDestination) {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    inclusive = true
+                }
+                launchSingleTop = true
+            }
+        }
+    }
+
+    val currentTitle = remember(currentRoute, isGuardian) {
         when (currentRoute) {
             MainRoute.Home -> R.string.home_title
+            MainRoute.GuardianHome -> R.string.nav_home
             MainRoute.QuickPhrases -> R.string.quick_phrases_title
             MainRoute.EditRecommendation -> R.string.edit_recommendation_title
             MainRoute.Settings -> R.string.settings_title
-            MainRoute.Account -> R.string.nav_account
+            MainRoute.Account -> if (isGuardian) R.string.nav_monitoring else R.string.nav_account
             else -> R.string.app_name
         }
     }
@@ -93,7 +117,7 @@ fun MainShell(
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                mainNavItems.forEach { item ->
+                navItems.forEach { item ->
                     val selected = if (item.route == MainRoute.EditRecommendation) {
                         currentRoute == MainRoute.Home && isEditMode
                     } else if (item.route == MainRoute.Home) {
@@ -145,10 +169,12 @@ fun MainShell(
                 modifier = Modifier.fillMaxSize(),
                 contentWindowInsets = WindowInsets.safeDrawing
             ) { innerPadding ->
-                MainNavHost(
-                    navController = navController,
-                    contentPadding = innerPadding,
-                    onLoginRequested = onLoginRequested,
+                        MainNavHost(
+                            navController = navController,
+                            contentPadding = innerPadding,
+                            startDestination = startDestination,
+                            isGuardian = isGuardian,
+                            onLoginRequested = onLoginRequested,
                     onMenuClick = {
                         scope.launch {
                             drawerState.open()
@@ -171,7 +197,7 @@ fun MainShell(
                 },
                 bottomBar = {
                     NavigationBar {
-                        mainNavItems.forEach { item ->
+                        navItems.forEach { item ->
                             val selected = if (item.route == MainRoute.EditRecommendation) {
                                 currentRoute == MainRoute.Home && isEditMode
                             } else if (item.route == MainRoute.Home) {
@@ -219,6 +245,8 @@ fun MainShell(
                 MainNavHost(
                     navController = navController,
                     contentPadding = innerPadding,
+                    startDestination = startDestination,
+                    isGuardian = isGuardian,
                     onLoginRequested = onLoginRequested,
                     onMenuClick = {
                         scope.launch {
@@ -235,12 +263,14 @@ fun MainShell(
 private fun MainNavHost(
     navController: androidx.navigation.NavHostController,
     contentPadding: PaddingValues,
+    startDestination: String,
+    isGuardian: Boolean,
     onLoginRequested: () -> Unit,
     onMenuClick: () -> Unit,
 ) {
     NavHost(
         navController = navController,
-        startDestination = MainRoute.Home,
+        startDestination = startDestination,
         modifier = Modifier
             .fillMaxSize()
             .padding(contentPadding),
@@ -259,6 +289,9 @@ private fun MainNavHost(
                 }
             )
         }
+        composable(MainRoute.GuardianHome) {
+            GuardianHomeScreen(onMenuClick = onMenuClick)
+        }
         composable(MainRoute.QuickPhrases) {
             QuickPhrasesScreen(
                 onBackClick = {
@@ -271,6 +304,7 @@ private fun MainNavHost(
                 onBackClick = {
                     navController.popBackStack()
                 },
+                isGuardian = isGuardian,
             )
         }
         composable(MainRoute.Account) {

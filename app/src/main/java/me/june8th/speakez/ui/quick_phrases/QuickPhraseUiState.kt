@@ -13,6 +13,7 @@ data class QuickPhraseUiState(
     val draftActionType: ActionType = ActionType.NONE,
     val draftActionPayload: String = "",
     val isDraftValid: Boolean = false,
+    val activeCallPhraseId: String? = null,
 )
 
 sealed interface QuickPhraseIntent {

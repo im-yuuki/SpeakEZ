@@ -50,7 +50,7 @@ class QuickPhraseRepositoryImpl @Inject constructor(
                 id = "default_help",
                 text = "Con cần giúp đỡ",
                 actionType = ActionType.PUSH_NOTI,
-                actionPayload = "helper",
+                actionPayload = null,
             ),
             QuickPhrase(
                 id = "default_pain",

@@ -115,7 +115,8 @@ fun OnboardingScreen(
         OnboardingStep.Voice to stringResource(R.string.onboarding_step_voice_desc),
     ).toMap()
 
-    val canProceed = currentOnboardingStep != OnboardingStep.PersonalInfo || viewModel.displayName.value.isNotBlank()
+    val canProceed = !viewModel.isFinishing.value &&
+        (currentOnboardingStep != OnboardingStep.PersonalInfo || viewModel.displayName.value.isNotBlank())
 
     val finishOnboarding = {
         viewModel.finish(
@@ -198,6 +199,8 @@ fun OnboardingScreen(
                     contentForStep(steps[stepIndex])
                 }
 
+                OnboardingErrorText(message = viewModel.errorMessage.value)
+
                 NavButtons(
                     currentStep = currentStep,
                     totalSteps = totalSteps,
@@ -269,6 +272,10 @@ fun OnboardingScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            OnboardingErrorText(message = viewModel.errorMessage.value)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             NavButtons(
                 currentStep = currentStep,
                 totalSteps = totalSteps,
@@ -283,6 +290,18 @@ fun OnboardingScreen(
             )
         }
     }
+}
+
+@Composable
+private fun OnboardingErrorText(message: String?) {
+    if (message == null) return
+    Text(
+        text = message,
+        modifier = Modifier.fillMaxWidth(),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.error,
+        textAlign = TextAlign.Center,
+    )
 }
 
 @Composable

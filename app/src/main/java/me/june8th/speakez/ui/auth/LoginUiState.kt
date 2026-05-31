@@ -4,6 +4,7 @@ import me.june8th.speakez.domain.model.AccountType
 
 data class LoginUiState(
     val isSignUp: Boolean = false,
+    val isChoosingAccountType: Boolean = false,
     val displayName: String = "",
     val email: String = "",
     val password: String = "",

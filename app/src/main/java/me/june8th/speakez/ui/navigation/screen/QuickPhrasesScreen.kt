@@ -143,6 +143,7 @@ private fun QuickPhrasePortraitContent(
                         icon = phrase.actionIcon(),
                         containerColor = phrase.containerColor(),
                         contentColor = phrase.contentColor(),
+                        enabled = phrase.actionType != ActionType.CALL || uiState.activeCallPhraseId == null,
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 140.dp),
@@ -175,6 +176,7 @@ private fun QuickPhraseLandscapeContent(
                         icon = phrase.actionIcon(),
                         containerColor = phrase.containerColor(),
                         contentColor = phrase.contentColor(),
+                        enabled = phrase.actionType != ActionType.CALL || uiState.activeCallPhraseId == null,
                         modifier = Modifier
                             .width(260.dp)
                             .fillMaxHeight(),
@@ -210,11 +212,13 @@ private fun EmergencyButton(
     icon: ImageVector,
     containerColor: Color,
     contentColor: Color,
+    enabled: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     Button(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier,
         colors = ButtonDefaults.buttonColors(
             containerColor = containerColor,

@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import me.june8th.speakez.domain.model.AccountType
 import me.june8th.speakez.domain.repository.AuthRepository
+import me.june8th.speakez.ui.common.toUserMessage
 import javax.inject.Inject
 
 @HiltViewModel
@@ -21,7 +22,13 @@ class LoginViewModel @Inject constructor(
     val profileState = authRepository.profileState
 
     fun setSignUp(isSignUp: Boolean) {
-        _uiState.update { it.copy(isSignUp = isSignUp, errorMessage = null) }
+        _uiState.update {
+            it.copy(
+                isSignUp = isSignUp,
+                isChoosingAccountType = isSignUp,
+                errorMessage = null,
+            )
+        }
     }
 
     fun setDisplayName(value: String) {
@@ -37,7 +44,11 @@ class LoginViewModel @Inject constructor(
     }
 
     fun setAccountType(accountType: AccountType) {
-        _uiState.update { it.copy(accountType = accountType) }
+        _uiState.update { it.copy(accountType = accountType, isChoosingAccountType = false, errorMessage = null) }
+    }
+
+    fun changeAccountType() {
+        _uiState.update { it.copy(isChoosingAccountType = true, errorMessage = null) }
     }
 
     fun clearError() {
@@ -101,7 +112,7 @@ class LoginViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage = throwable.message ?: "Đăng nhập thất bại",
+                            errorMessage = throwable.toUserMessage("Đăng nhập thất bại"),
                         )
                     }
                 }

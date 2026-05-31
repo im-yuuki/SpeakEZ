@@ -23,10 +23,14 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -48,6 +52,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -97,6 +102,7 @@ fun LoginScreen(
         LoginPanel(
             isLandscape = isLandscape,
             isSignUp = uiState.isSignUp,
+            isChoosingAccountType = uiState.isChoosingAccountType,
             displayName = uiState.displayName,
             email = uiState.email,
             password = uiState.password,
@@ -107,6 +113,7 @@ fun LoginScreen(
             onEmailChange = viewModel::setEmail,
             onPasswordChange = viewModel::setPassword,
             onAccountTypeChange = viewModel::setAccountType,
+            onChangeAccountType = viewModel::changeAccountType,
             onToggleMode = { viewModel.setSignUp(!uiState.isSignUp) },
             onSubmit = viewModel::submitEmailPassword,
             onGoogleClick = { googleLauncher.launch(googleSignInClient.signInIntent) },
@@ -182,6 +189,7 @@ private fun LoginHero(modifier: Modifier = Modifier) {
 private fun LoginPanel(
     isLandscape: Boolean,
     isSignUp: Boolean,
+    isChoosingAccountType: Boolean,
     displayName: String,
     email: String,
     password: String,
@@ -192,6 +200,7 @@ private fun LoginPanel(
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onAccountTypeChange: (AccountType) -> Unit,
+    onChangeAccountType: () -> Unit,
     onToggleMode: () -> Unit,
     onSubmit: () -> Unit,
     onGoogleClick: () -> Unit,
@@ -208,6 +217,14 @@ private fun LoginPanel(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            if (isSignUp && isChoosingAccountType) {
+                AccountTypeChoicePage(
+                    onAccountTypeChange = onAccountTypeChange,
+                    onToggleMode = onToggleMode,
+                )
+                return@Column
+            }
+
             Text(
                 text = if (isSignUp) "Tạo tài khoản" else "Đăng nhập",
                 style = MaterialTheme.typography.headlineSmall,
@@ -223,9 +240,9 @@ private fun LoginPanel(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (isSignUp) {
-                AccountTypeSelector(
-                    selected = accountType,
-                    onSelected = onAccountTypeChange,
+                SelectedAccountTypeSummary(
+                    accountType = accountType,
+                    onChangeAccountType = onChangeAccountType,
                 )
                 OutlinedTextField(
                     value = displayName,
@@ -313,39 +330,138 @@ private fun LoginPanel(
 }
 
 @Composable
-private fun AccountTypeSelector(
-    selected: AccountType,
-    onSelected: (AccountType) -> Unit,
+private fun AccountTypeChoicePage(
+    onAccountTypeChange: (AccountType) -> Unit,
+    onToggleMode: () -> Unit,
 ) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        AccountType.entries.forEach { type ->
-            val isSelected = selected == type
+        Text(
+            text = "Bạn muốn tạo tài khoản nào?",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            text = "Chọn đúng vai trò để SpeakEZ bật các tính năng phù hợp ngay từ đầu.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        AccountTypeChoiceCard(
+            icon = Icons.Filled.AccountCircle,
+            title = AccountType.USER.label,
+            description = "Tạo câu nhanh, dùng giọng đọc và gửi cảnh báo khẩn cấp cho người giám hộ.",
+            onClick = { onAccountTypeChange(AccountType.USER) },
+        )
+        AccountTypeChoiceCard(
+            icon = Icons.Filled.VerifiedUser,
+            title = AccountType.GUARDIAN.label,
+            description = "Nhận lời mời giám hộ, theo dõi người dùng đã liên kết và nhận cảnh báo realtime.",
+            onClick = { onAccountTypeChange(AccountType.GUARDIAN) },
+        )
+        TextButton(
+            onClick = onToggleMode,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Đã có tài khoản? Đăng nhập")
+        }
+    }
+}
+
+@Composable
+private fun AccountTypeChoiceCard(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(128.dp),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.primaryContainer,
+        tonalElevation = 2.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(18.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Surface(
-                onClick = { onSelected(type) },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp),
-                shape = MaterialTheme.shapes.medium,
-                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.size(56.dp),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.primary,
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = type.label,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center,
-                    )
-                }
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.padding(14.dp),
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectedAccountTypeSummary(
+    accountType: AccountType,
+    onChangeAccountType: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = if (accountType == AccountType.USER) Icons.Filled.AccountCircle else Icons.Filled.VerifiedUser,
+                contentDescription = null,
+                modifier = Modifier.size(28.dp),
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Loại tài khoản",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+                Text(
+                    text = accountType.label,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+            TextButton(onClick = onChangeAccountType) {
+                Text("Đổi")
             }
         }
     }

@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import me.june8th.speakez.domain.model.AccountGender
 import me.june8th.speakez.domain.repository.AuthRepository
 import me.june8th.speakez.tts.TtsManager
+import me.june8th.speakez.ui.common.toUserMessage
 import javax.inject.Inject
 
 @HiltViewModel
@@ -27,6 +28,10 @@ class OnboardingViewModel @Inject constructor(
     var gridChoice = mutableStateOf("4x6")
     var speechRate = mutableFloatStateOf(1.0f)
     var pitch = mutableFloatStateOf(1.0f)
+    var isFinishing = mutableStateOf(false)
+        private set
+    var errorMessage = mutableStateOf<String?>(null)
+        private set
 
     val shouldShowPersonalInfoStep: Boolean = authRepository.profileState.value?.isGuest != false
 
@@ -42,16 +47,24 @@ class OnboardingViewModel @Inject constructor(
         savePersonalInfo: Boolean,
         onFinished: () -> Unit,
     ) {
+        if (isFinishing.value) return
+        errorMessage.value = null
+        isFinishing.value = true
         val prefs = context.getSharedPreferences("SpeakEZ_Prefs", Context.MODE_PRIVATE)
-        prefs.edit()
-            .putBoolean("onboarding_complete", true)
-            .putString("grid_choice", gridChoice.value)
-            .putFloat("speech_rate", speechRate.floatValue)
-            .putFloat("pitch", pitch.floatValue)
-            .putString("profile_name", displayName.value)
-            .apply()
+        fun saveLocalSettings() {
+            prefs.edit()
+                .putBoolean("onboarding_complete", true)
+                .putString("grid_choice", gridChoice.value)
+                .putFloat("speech_rate", speechRate.floatValue)
+                .putFloat("pitch", pitch.floatValue)
+                .putString("profile_name", displayName.value)
+                .apply()
+        }
+
         ttsManager.setVoiceConfig(speechRate.floatValue, pitch.floatValue)
         if (!savePersonalInfo) {
+            saveLocalSettings()
+            isFinishing.value = false
             onFinished()
             return
         }
@@ -62,8 +75,14 @@ class OnboardingViewModel @Inject constructor(
                     dateOfBirth = dateOfBirth.value,
                     gender = gender.value,
                 )
+            }.onSuccess {
+                saveLocalSettings()
+                isFinishing.value = false
+                onFinished()
+            }.onFailure { throwable ->
+                isFinishing.value = false
+                errorMessage.value = throwable.toUserMessage("Không thể lưu hồ sơ")
             }
-            onFinished()
         }
     }
 }

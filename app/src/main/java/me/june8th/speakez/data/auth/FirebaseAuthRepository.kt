@@ -6,6 +6,7 @@ import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import me.june8th.speakez.di.ApplicationScope
 import me.june8th.speakez.domain.model.AccountGender
 import me.june8th.speakez.domain.model.AccountProfile
@@ -23,6 +25,7 @@ import me.june8th.speakez.domain.model.AccountType
 import me.june8th.speakez.domain.model.AuthUser
 import me.june8th.speakez.domain.repository.AuthRepository
 import kotlinx.coroutines.CoroutineScope
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -47,7 +50,12 @@ class FirebaseAuthRepository @Inject constructor(
             flowOf(null)
         } else {
             callbackFlow {
-                val registration = accountDocument(user.uid).addSnapshotListener { snapshot, _ ->
+                val registration = accountDocument(user.uid).addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        Timber.w(error, "Failed to observe remote account profile")
+                        trySend(null)
+                        return@addSnapshotListener
+                    }
                     trySend(snapshot?.toRemoteAccountProfile())
                 }
                 awaitClose { registration.remove() }
@@ -93,9 +101,13 @@ class FirebaseAuthRepository @Inject constructor(
     )
 
     override suspend fun signInWithEmail(email: String, password: String) {
-        firebaseAuth.signInWithEmailAndPassword(email, password).await().user
+        val user = firebaseAuth.signInWithEmailAndPassword(email, password).await().user
             ?: error("Không thể đọc thông tin tài khoản sau khi đăng nhập")
-        localSessionStore.clearGuestMode()
+        withContext(NonCancellable) {
+            localSessionStore.clearGuestMode()
+            saveAccountLookup(user.uid, user.email, user.displayName)
+            backfillStoredAccountType(user.uid, user.email, user.displayName)
+        }
     }
 
     override suspend fun signUpWithEmail(
@@ -107,16 +119,19 @@ class FirebaseAuthRepository @Inject constructor(
         val user = firebaseAuth.createUserWithEmailAndPassword(email, password).await().user
             ?: error("Không thể tạo tài khoản")
         val resolvedName = displayName.ifBlank { email }
-        user.updateProfile(UserProfileChangeRequest.Builder().setDisplayName(resolvedName).build()).await()
-        localSessionStore.clearGuestMode()
-        localSessionStore.saveFirebaseProfile(user.uid, resolvedName, accountType)
-        saveRemoteProfile(
-            uid = user.uid,
-            displayName = resolvedName,
-            dateOfBirth = "",
-            gender = AccountGender.UNSPECIFIED,
-            accountType = accountType,
-        )
+        withContext(NonCancellable) {
+            localSessionStore.clearGuestMode()
+            localSessionStore.saveFirebaseProfile(user.uid, resolvedName, accountType)
+            user.updateProfile(UserProfileChangeRequest.Builder().setDisplayName(resolvedName).build()).await()
+            saveRemoteProfile(
+                uid = user.uid,
+                email = user.email,
+                displayName = resolvedName,
+                dateOfBirth = "",
+                gender = AccountGender.UNSPECIFIED,
+                accountType = accountType,
+            )
+        }
     }
 
     override suspend fun signInWithGoogle(idToken: String, accountType: AccountType?) {
@@ -124,18 +139,48 @@ class FirebaseAuthRepository @Inject constructor(
         val result = firebaseAuth.signInWithCredential(credential).await()
         val user = result.user
             ?: error("Không thể đăng nhập bằng Google")
-        localSessionStore.clearGuestMode()
-        if (accountType != null && result.additionalUserInfo?.isNewUser == true && !localSessionStore.hasAccountType(user.uid)) {
-            val displayName = user.displayName?.takeIf { it.isNotBlank() } ?: user.email ?: "Tài khoản Google"
-            localSessionStore.saveFirebaseProfile(user.uid, displayName, accountType)
-            saveRemoteProfile(
-                uid = user.uid,
-                displayName = displayName,
-                dateOfBirth = "",
-                gender = AccountGender.UNSPECIFIED,
-                accountType = accountType,
-            )
+        val displayName = user.displayName?.takeIf { it.isNotBlank() } ?: user.email ?: "Tài khoản Google"
+        withContext(NonCancellable) {
+            val shouldSaveSelectedType = accountType != null &&
+                shouldSaveGoogleAccountType(user.uid, result.additionalUserInfo?.isNewUser == true)
+            localSessionStore.clearGuestMode()
+            if (shouldSaveSelectedType) {
+                localSessionStore.saveFirebaseProfile(user.uid, displayName, accountType)
+            }
+            saveAccountLookup(user.uid, user.email, user.displayName)
+            if (shouldSaveSelectedType) {
+                saveRemoteProfile(
+                    uid = user.uid,
+                    email = user.email,
+                    displayName = displayName,
+                    dateOfBirth = "",
+                    gender = AccountGender.UNSPECIFIED,
+                    accountType = accountType,
+                )
+            } else {
+                backfillStoredAccountType(user.uid, user.email, user.displayName)
+            }
         }
+    }
+
+    private suspend fun shouldSaveGoogleAccountType(uid: String, isNewUser: Boolean): Boolean {
+        if (isNewUser) return true
+        if (localSessionStore.hasAccountType(uid)) return false
+        return accountDocument(uid).get().await().getString(FIELD_ACCOUNT_TYPE).isNullOrBlank()
+    }
+
+    private suspend fun backfillStoredAccountType(uid: String, email: String?, displayName: String?) {
+        if (!localSessionStore.hasAccountType(uid)) return
+        val snapshot = accountDocument(uid).get().await()
+        if (!snapshot.getString(FIELD_ACCOUNT_TYPE).isNullOrBlank()) return
+        saveRemoteProfile(
+            uid = uid,
+            email = email,
+            displayName = displayName?.takeIf { it.isNotBlank() } ?: email ?: "Tài khoản",
+            dateOfBirth = snapshot.getString(FIELD_DATE_OF_BIRTH).orEmpty(),
+            gender = AccountGender.fromStored(snapshot.getString(FIELD_GENDER)),
+            accountType = localSessionStore.getAccountType(uid),
+        )
     }
 
     override suspend fun saveProfile(displayName: String, dateOfBirth: String, gender: AccountGender) {
@@ -151,6 +196,7 @@ class FirebaseAuthRepository @Inject constructor(
         localSessionStore.saveFirebaseProfile(user.uid, resolvedName, profile.accountType, dateOfBirth, gender)
         saveRemoteProfile(
             uid = user.uid,
+            email = user.email,
             displayName = resolvedName,
             dateOfBirth = dateOfBirth,
             gender = gender,
@@ -174,6 +220,7 @@ class FirebaseAuthRepository @Inject constructor(
 
     private suspend fun saveRemoteProfile(
         uid: String,
+        email: String?,
         displayName: String,
         dateOfBirth: String,
         gender: AccountGender,
@@ -182,10 +229,27 @@ class FirebaseAuthRepository @Inject constructor(
         accountDocument(uid).set(
             mapOf(
                 FIELD_DISPLAY_NAME to displayName,
+                FIELD_EMAIL to email,
+                FIELD_NORMALIZED_EMAIL to email.normalizedEmail(),
                 FIELD_DATE_OF_BIRTH to dateOfBirth,
                 FIELD_GENDER to gender.name,
                 FIELD_ACCOUNT_TYPE to accountType.name,
             ),
+            com.google.firebase.firestore.SetOptions.merge(),
+        ).await()
+    }
+
+    private suspend fun saveAccountLookup(uid: String, email: String?, displayName: String?) {
+        val fields = buildMap {
+            email?.let {
+                put(FIELD_EMAIL, it)
+                put(FIELD_NORMALIZED_EMAIL, it.normalizedEmail())
+            }
+            displayName?.takeIf { it.isNotBlank() }?.let { put(FIELD_DISPLAY_NAME, it) }
+        }
+        if (fields.isEmpty()) return
+        accountDocument(uid).set(
+            fields,
             com.google.firebase.firestore.SetOptions.merge(),
         ).await()
     }
@@ -209,6 +273,8 @@ class FirebaseAuthRepository @Inject constructor(
     private companion object {
         const val COLLECTION_ACCOUNT_PROFILES = "account_profiles"
         const val FIELD_DISPLAY_NAME = "displayName"
+        const val FIELD_EMAIL = "email"
+        const val FIELD_NORMALIZED_EMAIL = "normalizedEmail"
         const val FIELD_DATE_OF_BIRTH = "dateOfBirth"
         const val FIELD_GENDER = "gender"
         const val FIELD_ACCOUNT_TYPE = "accountType"
@@ -240,3 +306,5 @@ private fun com.google.firebase.auth.FirebaseUser.toAuthUser(): AuthUser {
         photoUrl = photoUrl?.toString(),
     )
 }
+
+private fun String?.normalizedEmail(): String? = this?.trim()?.lowercase()
